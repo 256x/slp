@@ -126,6 +126,17 @@ func startPlayback(ctx context.Context, client *SpotifyClient, uri, deviceID str
 	return client.PlayPlaylist(ctx, uri, deviceID, offsetURI)
 }
 
+func skipCmd(client *SpotifyClient, deviceID string, fn func(context.Context, string) error) tea.Cmd {
+	return func() tea.Msg {
+		if err := fn(context.Background(), deviceID); err != nil {
+			return apiErrorMsg{Err: err}
+		}
+		time.Sleep(300 * time.Millisecond)
+		s, _ := client.GetCurrentPlayback(context.Background())
+		return playbackUpdatedMsg{State: s}
+	}
+}
+
 func playCmd(client *SpotifyClient, uri, deviceID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
@@ -344,28 +355,14 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.setStatus("No active Spotify device")
 			return m, nil
 		}
-		return m, func() tea.Msg {
-			if err := m.client.Next(context.Background(), m.playback.DeviceID); err != nil {
-				return apiErrorMsg{Err: err}
-			}
-			time.Sleep(300 * time.Millisecond)
-			s, _ := m.client.GetCurrentPlayback(context.Background())
-			return playbackUpdatedMsg{State: s}
-		}
+		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Next)
 
 	case "h", "left":
 		if m.playback.DeviceID == "" {
 			m.setStatus("No active Spotify device")
 			return m, nil
 		}
-		return m, func() tea.Msg {
-			if err := m.client.Previous(context.Background(), m.playback.DeviceID); err != nil {
-				return apiErrorMsg{Err: err}
-			}
-			time.Sleep(300 * time.Millisecond)
-			s, _ := m.client.GetCurrentPlayback(context.Background())
-			return playbackUpdatedMsg{State: s}
-		}
+		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Previous)
 
 	case "k", "up":
 		return m, m.adjustVolume(+5)
@@ -799,7 +796,7 @@ func overlay(base, popup string, termW, termH int) string {
 		if row >= startRow && row < startRow+popupH {
 			lineIdx := row - startRow
 			line := popupLines[lineIdx]
-			lineW := utf8.RuneCountInString(line)
+			lineW := lipgloss.Width(line)
 			leftPad := startCol
 			rightPad := termW - startCol - lineW
 			if rightPad < 0 {

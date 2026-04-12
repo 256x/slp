@@ -311,6 +311,15 @@ func (c *SpotifyClient) GetUserPlaylists(ctx context.Context) ([]Playlist, error
 
 // --- Playback controls ---
 
+func (c *SpotifyClient) control(ctx context.Context, method, path string) error {
+	resp, err := c.do(ctx, method, path, nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return checkStatus(resp)
+}
+
 func (c *SpotifyClient) TransferPlayback(ctx context.Context, deviceID string) error {
 	body := map[string]any{"device_ids": []string{deviceID}}
 	resp, err := c.do(ctx, "PUT", "/v1/me/player", body)
@@ -365,43 +374,19 @@ func (c *SpotifyClient) PlayPlaylist(ctx context.Context, uri, deviceID, offsetU
 }
 
 func (c *SpotifyClient) Pause(ctx context.Context, deviceID string) error {
-	q := deviceQuery(deviceID)
-	resp, err := c.do(ctx, "PUT", "/v1/me/player/pause"+q, nil)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return checkStatus(resp)
+	return c.control(ctx, "PUT", "/v1/me/player/pause"+deviceQuery(deviceID))
 }
 
 func (c *SpotifyClient) Resume(ctx context.Context, deviceID string) error {
-	q := deviceQuery(deviceID)
-	resp, err := c.do(ctx, "PUT", "/v1/me/player/play"+q, nil)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return checkStatus(resp)
+	return c.control(ctx, "PUT", "/v1/me/player/play"+deviceQuery(deviceID))
 }
 
 func (c *SpotifyClient) Next(ctx context.Context, deviceID string) error {
-	q := deviceQuery(deviceID)
-	resp, err := c.do(ctx, "POST", "/v1/me/player/next"+q, nil)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return checkStatus(resp)
+	return c.control(ctx, "POST", "/v1/me/player/next"+deviceQuery(deviceID))
 }
 
 func (c *SpotifyClient) Previous(ctx context.Context, deviceID string) error {
-	q := deviceQuery(deviceID)
-	resp, err := c.do(ctx, "POST", "/v1/me/player/previous"+q, nil)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return checkStatus(resp)
+	return c.control(ctx, "POST", "/v1/me/player/previous"+deviceQuery(deviceID))
 }
 
 func (c *SpotifyClient) SetVolume(ctx context.Context, deviceID string, volume int) error {
