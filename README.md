@@ -1,12 +1,13 @@
-# spolistplay
+# slp
 
-A minimal terminal Spotify player. Single-line UI, keyboard-driven, works in tmux and normal terminals.
+A minimal terminal Spotify player. Single-line playback display, keyboard-driven, popup playlist search. Works in tmux and zellij (popup opens as a floating pane), and in normal terminals.
 
 ## Requirements
 
 - Go 1.22+
 - Spotify Premium account (required for playback control)
 - A Spotify developer app
+- [Nerd Fonts](https://www.nerdfonts.com/) (recommended for icons, see [Icons](#icons))
 
 ## Spotify Developer App Setup
 
@@ -26,45 +27,71 @@ export SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback  # optional, this is 
 ## Build
 
 ```sh
-go build
+go build -o slp .
 ```
 
-Cross-compile for Windows:
+Install to PATH:
 
 ```sh
-GOOS=windows GOARCH=amd64 go build
+go build -o slp . && cp slp ~/.local/bin/
 ```
 
-## Run
+## Usage
 
 ```sh
-./spolistplay
+slp
 ```
 
-On first run, a browser window opens for Spotify OAuth. After login, the token is saved to `~/.config/spolistplay/token.json`.
+On first run, a browser window opens for Spotify OAuth. After login, the token is saved to `~/.config/slp/token.json`.
+
+The player line shows current playback:
+
+```
+󰐊 [ bad guy @ Billie Eilish ] ======---- 󰕾:65 󰒟:-
+```
+
+Press `P` to open the playlist search popup. In tmux or zellij, the popup appears as a floating pane over the full terminal.
+
+### Playlist search
+
+Type a search term and press `Enter` to search Spotify. Type `0` and press `Enter` to list your own playlists (sorted by track count). Results are then navigable with `j`/`k`.
 
 ## Key Bindings
 
+### Player
+
+| Key            | Action                |
+|----------------|-----------------------|
+| `p`            | Play / Pause          |
+| `l` / `→`     | Next track            |
+| `h` / `←`     | Previous track        |
+| `k` / `↑`     | Volume +5             |
+| `j` / `↓`     | Volume -5             |
+| `s` / `S`      | Toggle shuffle        |
+| `P`            | Open playlist search  |
+| `?`            | Show key bindings     |
+| `q` / `Esc`   | Quit (pauses playback)|
+
+### Playlist search popup
+
+| Key            | Action                        |
+|----------------|-------------------------------|
+| type + `Enter` | Search Spotify for playlists  |
+| `0` + `Enter`  | Show your own playlists       |
+| `j` / `↓`     | Move down                     |
+| `k` / `↑`     | Move up                       |
+| `Enter`        | Select → device selection     |
+| `/`            | Search again                  |
+| `Esc` / `q`   | Close                         |
+
+### Device selection popup
+
 | Key          | Action              |
 |--------------|---------------------|
-| `p`          | Play / Pause        |
-| `l` / `→`   | Next track          |
-| `h` / `←`   | Previous track      |
-| `k` / `↑`   | Volume up (+10)     |
-| `j` / `↓`   | Volume down (-10)   |
-| `s`          | Toggle shuffle      |
-| `P`          | Open playlist popup |
-| `q`          | Quit                |
-
-### Playlist popup
-
-| Key          | Action              |
-|--------------|---------------------|
-| `j` / `↓`   | Move down           |
-| `k` / `↑`   | Move up             |
-| `Enter`      | Select playlist     |
-| `/`          | Filter playlists    |
-| `Esc` / `q`  | Close popup         |
+| `j` / `↓`  | Move down           |
+| `k` / `↑`  | Move up             |
+| `Enter`      | Play on device      |
+| `Esc`        | Back to playlists   |
 
 ## Flags
 
@@ -74,14 +101,26 @@ On first run, a browser window opens for Spotify OAuth. After login, the token i
 --debug      Enable debug logging to stderr
 ```
 
+## Icons
+
+slp uses [Nerd Fonts](https://www.nerdfonts.com/) Material Design icons by default. If you don't use Nerd Fonts, edit `icons.go` and replace the constants with the fallback values shown in the comments:
+
+```go
+const (
+    IconPlay    = "󰐊" // fallback: ▶
+    IconPause   = "󰏤" // fallback: ⏸
+    IconVolume  = "󰕾" // fallback: 🔊
+    IconShuffle = "󰒟" // fallback: ⇄
+)
+```
+
 ## Storage
 
-- Token: `~/.config/spolistplay/token.json`
-- Playback cache: `~/.cache/spolistplay/state.json`
+- Token: `~/.config/slp/token.json`
+- Playback cache: `~/.cache/slp/state.json`
 
 ## Limitations
 
 - Playback control requires Spotify Premium
 - Volume control is not available on all devices
-- If no Spotify device is active, playback commands will fail with a message
-- Spotify Web API rate limits apply; the app backs off automatically on HTTP 429
+- Popup playlist search requires tmux or zellij for floating display; falls back to inline in plain terminals
