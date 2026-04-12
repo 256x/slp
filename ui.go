@@ -726,8 +726,7 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 	var sb strings.Builder
 
 	// Title line
-	titleLine := styleTitle.Render(title)
-	sb.WriteString(titleLine)
+	sb.WriteString(styleTitle.Render(runewidth.Truncate(title, innerW, "")))
 	sb.WriteString("\n")
 
 	// Filter line
@@ -736,7 +735,8 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 		if filterActive {
 			indicator = styleFilter.Render("/")
 		}
-		sb.WriteString(indicator + filter)
+		f := runewidth.Truncate(filter, innerW-2, "…")
+		sb.WriteString(indicator + f)
 		if filterActive {
 			sb.WriteString("█")
 		}
@@ -745,12 +745,8 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 
 	// Item rows
 	for i := start; i < end; i++ {
-		row := truncate(items[i], innerW)
-		// Pad to innerW
-		rowRunes := utf8.RuneCountInString(row)
-		if rowRunes < innerW {
-			row += strings.Repeat(" ", innerW-rowRunes)
-		}
+		row := runewidth.Truncate(items[i], innerW, "…")
+		row = runewidth.FillRight(row, innerW)
 		if i == cursor {
 			sb.WriteString(styleSelected.Render(row))
 		} else {
@@ -760,7 +756,7 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 	}
 
 	// Footer hint
-	sb.WriteString(lipgloss.NewStyle().Faint(true).Render(footer))
+	sb.WriteString(lipgloss.NewStyle().Faint(true).Render(runewidth.Truncate(footer, innerW, "")))
 
 	content := sb.String()
 	boxed := stylePopupBorder.Width(maxW).Render(content)
@@ -772,10 +768,10 @@ func overlay(base, popup string, termW, termH int) string {
 	popupLines := strings.Split(popup, "\n")
 	popupH := len(popupLines)
 
-	// Find max popup width
+	// Find max popup width (strip ANSI codes for accurate measurement)
 	popupW := 0
 	for _, l := range popupLines {
-		w := utf8.RuneCountInString(l)
+		w := lipgloss.Width(l)
 		if w > popupW {
 			popupW = w
 		}
