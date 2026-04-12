@@ -5,6 +5,6 @@ package main
 const (
 	IconPlay    = "󰐊" // fallback: ▶
 	IconPause   = "󰏤" // fallback: ⏸
-	IconVolume  = "󰕾" // fallback: 🔊
-	IconShuffle = "󰒟" // fallback: ⇄
+	IconVolume  = "V"
+	IconShuffle = "S"
 )
