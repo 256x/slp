@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
+
+	colorful "github.com/lucasb-eyer/go-colorful"
 	"os/exec"
 	"sort"
 	"strings"
@@ -25,6 +28,7 @@ type devicesLoadedMsg struct {
 	Devices []Device
 	Err     error
 }
+
 
 // --- model ---
 
@@ -52,6 +56,7 @@ type model struct {
 	selectMode       bool
 	client           *SpotifyClient
 	debug            bool
+	vizTick          int
 }
 
 // --- styles ---
@@ -61,6 +66,11 @@ var (
 	styleSelected    lipgloss.Style
 	styleTitle       lipgloss.Style
 	styleFilter      lipgloss.Style
+	styleAccent      lipgloss.Style
+	styleDim         lipgloss.Style
+
+	accentColor    colorful.Color
+	hasAccentColor bool
 )
 
 func initStyles(t resolvedTheme) {
@@ -77,6 +87,16 @@ func initStyles(t resolvedTheme) {
 		Bold(true)
 	styleFilter = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(t.FilterFg))
+	styleAccent = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.Accent))
+	styleDim = lipgloss.NewStyle().
+		Faint(true)
+
+	hasAccentColor = false
+	if c, err := colorful.Hex(t.Accent); err == nil {
+		accentColor = c
+		hasAccentColor = true
+	}
 }
 
 // --- init ---
@@ -98,10 +118,19 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		fetchPlayback(m.client),
 		tick(),
+		vizTick(),
 	)
 }
 
 var cfg Config
+
+type vizTickMsg struct{}
+
+func vizTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return vizTickMsg{}
+	})
+}
 
 func tick() tea.Cmd {
 	d := time.Duration(cfg.UI.TickInterval) * time.Second
@@ -171,6 +200,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		return m, tea.Batch(fetchPlayback(m.client), tick())
+
+	case vizTickMsg:
+		m.vizTick++
+		return m, vizTick()
 
 	case playbackUpdatedMsg:
 		m.playback = msg.State
@@ -277,7 +310,7 @@ func fetchDevices(client *SpotifyClient) tea.Cmd {
 
 func (m model) handleDevicePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc":
+	case "esc", "backspace":
 		m.devicePopupOpen = false
 		m.popupOpen = true
 	case "q", "ctrl+c":
@@ -473,7 +506,7 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "q", "esc":
+	case "q", "esc", "backspace":
 		if m.selectMode {
 			return m, tea.Quit
 		}
@@ -529,23 +562,25 @@ func (m model) View() string {
 
 func (m model) renderWithHelp() string {
 	items := []string{
-		"p        play / pause",
-		"h / ←   previous track",
-		"l / →   next track",
-		"k / ↑   volume +5",
-		"j / ↓   volume -5",
-		"s        toggle shuffle",
-		"P        select playlist",
-		"q        quit",
+		"p    play / pause",
+		"h/←  previous track",
+		"l/→  next track",
+		"k/↑  volume +5",
+		"j/↓  volume -5",
+		"s    toggle shuffle",
+		"P    select playlist",
+		"bs   go back / close",
+		"q    quit",
+		"",
+		"any key to close",
 	}
-	popup := renderPopupBox("keys", items, -1, "", false, "any key to close", m.width, m.height)
+	popup := renderPopupBox("keys", items, nil, -1, -1, "", false, m.width, m.height)
 	return overlay(m.renderPlayerLine(), popup, m.width, m.height)
 }
 
 func (m model) renderPlayerLine() string {
 	status := m.currentStatus()
-	line := buildPlayerLine(m.playback, m.width, status)
-	return line
+	return buildPlayerLine(m.playback, m.width, status, m.vizTick)
 }
 
 func (m model) currentStatus() string {
@@ -556,7 +591,7 @@ func (m model) currentStatus() string {
 	return ""
 }
 
-func buildPlayerLine(s PlaybackState, width int, status string) string {
+func buildPlayerLine(s PlaybackState, width int, status string, vizTick int) string {
 	if status != "" {
 		return truncate(status, width)
 	}
@@ -564,9 +599,9 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		return cfg.Icons.Pause + " nothing to play..."
 	}
 
-	playSymbol := cfg.Icons.Play
+	playSymbol := styleAccent.Render(cfg.Icons.Play)
 	if !s.Playing {
-		playSymbol = cfg.Icons.Pause
+		playSymbol = styleAccent.Render(cfg.Icons.Pause)
 	}
 
 	shuffleChar := "-"
@@ -574,16 +609,15 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		shuffleChar = "+"
 	}
 
-	right := " " + cfg.Icons.Shuffle + " :" + shuffleChar
+	right := styleDim.Render(" "+cfg.Icons.Shuffle+" :"+shuffleChar)
 	if s.VolumePercent != nil {
-		right = fmt.Sprintf(" %s :%d", cfg.Icons.Volume, *s.VolumePercent) + right
+		right = styleDim.Render(fmt.Sprintf(" %s :%d", cfg.Icons.Volume, *s.VolumePercent)) + right
 	}
 
 	prefix := playSymbol + " "
-	prefixW := runewidth.StringWidth(prefix)
-	rightW := runewidth.StringWidth(right)
+	prefixW := lipgloss.Width(prefix)
+	rightW := lipgloss.Width(right)
 
-	// Space for [ track @ artist ] + bar
 	available := width - prefixW - rightW
 	if available < 4 {
 		return prefix + truncate(s.Track, available) + right
@@ -594,8 +628,7 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 
 	const minBar = 4
 	if trackW > available-minBar {
-		// Truncate inner text to fit, leaving room for bar
-		innerMax := available - minBar - 4 // 4 = len("[ " + " ] ")
+		innerMax := available - minBar - 4
 		if innerMax < 1 {
 			innerMax = 1
 		}
@@ -608,17 +641,17 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 	if barWidth < 0 {
 		barWidth = 0
 	}
-	bar := progressBar(s.ProgressMS, s.DurationMS, barWidth)
+	bar := progressBar(s.ProgressMS, s.DurationMS, barWidth, vizTick)
 
 	return prefix + trackStr + bar + right
 }
 
-func progressBar(progressMS, durationMS, width int) string {
+func progressBar(progressMS, durationMS, width, tick int) string {
 	if width <= 0 {
 		return ""
 	}
 	if durationMS <= 0 {
-		return strings.Repeat("-", width)
+		return styleDim.Render(strings.Repeat("-", width))
 	}
 	ratio := float64(progressMS) / float64(durationMS)
 	if ratio < 0 {
@@ -627,7 +660,28 @@ func progressBar(progressMS, durationMS, width int) string {
 		ratio = 1
 	}
 	filled := int(float64(width) * ratio)
-	return strings.Repeat("=", filled) + strings.Repeat("-", width-filled)
+
+	var sb strings.Builder
+	if hasAccentColor {
+		h, c, l := accentColor.Hcl()
+		dark := colorful.Hcl(h, c*0.4, l*0.25).Clamped()
+		offset := float64(tick) * 0.06
+		for i := range width {
+			// sine wave sweeping left to right
+			t := math.Sin(float64(i)/float64(width)*math.Pi*2-offset)*0.5 + 0.5
+			col := dark.BlendHcl(accentColor, t).Clamped()
+			st := lipgloss.NewStyle().Foreground(lipgloss.Color(col.Hex()))
+			if i < filled {
+				sb.WriteString(st.Render("="))
+			} else {
+				sb.WriteString(st.Faint(true).Render("-"))
+			}
+		}
+	} else {
+		sb.WriteString(styleAccent.Render(strings.Repeat("=", filled)))
+		sb.WriteString(styleDim.Render(strings.Repeat("-", width-filled)))
+	}
+	return sb.String()
 }
 
 func truncate(s string, maxRunes int) string {
@@ -644,15 +698,18 @@ func truncate(s string, maxRunes int) string {
 // --- popup rendering ---
 
 func (m model) renderWithPopup() string {
-	footer := "[↑↓/jk]:select [enter]:play [esc]:close"
 	if m.loading {
-		popup := renderPopupBox("playlist search", []string{"loading..."}, -1, m.filterInput, m.filterActive, footer, m.width, m.height)
+		popup := renderPopupBox("playlist search", []string{"loading..."}, nil, -1, -1, m.filterInput, m.filterActive, m.width, m.height)
 		return overlay(m.base(), popup, m.width, m.height)
 	}
 
 	items := make([]string, len(m.filteredLists))
+	rightLabels := make([]string, len(m.filteredLists))
 	for i, p := range m.filteredLists {
 		items[i] = p.Name
+		if p.TrackCount > 0 {
+			rightLabels[i] = fmt.Sprintf("%d", p.TrackCount)
+		}
 	}
 	if len(items) == 0 {
 		if m.filterActive {
@@ -660,30 +717,33 @@ func (m model) renderWithPopup() string {
 		} else {
 			items = []string{"(no results)"}
 		}
+		rightLabels = nil
 	}
 
-	popup := renderPopupBox("found playlists", items, m.playlistCursor, m.filterInput, m.filterActive, footer, m.width, m.height)
+	popup := renderPopupBox("slp", items, rightLabels, m.playlistCursor, len(m.filteredLists), m.filterInput, m.filterActive, m.width, m.height)
 	return overlay(m.base(), popup, m.width, m.height)
 }
 
 func (m model) renderWithDevicePopup() string {
-	footer := "[↑↓/jk]:select [enter]:play [esc]:back"
 	if m.deviceLoading {
-		popup := renderPopupBox("select device", []string{"loading..."}, -1, "", false, footer, m.width, m.height)
+		popup := renderPopupBox("select device", []string{"loading..."}, nil, -1, -1, "", false, m.width, m.height)
 		return overlay(m.base(), popup, m.width, m.height)
 	}
 	items := make([]string, len(m.devices))
+	rightLabels := make([]string, len(m.devices))
 	for i, d := range m.devices {
-		label := d.Name + " [" + d.Type + "]"
+		items[i] = d.Name
+		rl := strings.ToLower(d.Type)
 		if d.IsActive {
-			label += " *"
+			rl += " ·"
 		}
-		items[i] = label
+		rightLabels[i] = rl
 	}
 	if len(items) == 0 {
 		items = []string{"(no devices)"}
+		rightLabels = nil
 	}
-	popup := renderPopupBox("select device", items, m.deviceCursor, "", false, footer, m.width, m.height)
+	popup := renderPopupBox("select device", items, rightLabels, m.deviceCursor, len(m.devices), "", false, m.width, m.height)
 	return overlay(m.base(), popup, m.width, m.height)
 }
 
@@ -694,7 +754,8 @@ func (m model) base() string {
 	return m.renderPlayerLine()
 }
 
-func renderPopupBox(title string, items []string, cursor int, filter string, filterActive bool, footer string, termW, termH int) string {
+// renderPopupBox renders a popup. cursor=-1 means no selection. total=-1 suppresses scroll indicator.
+func renderPopupBox(title string, items, rightLabels []string, cursor, total int, filter string, filterActive bool, termW, termH int) string {
 	maxW := termW - 4
 	if maxW > 60 {
 		maxW = 60
@@ -703,7 +764,6 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 		maxW = 20
 	}
 
-	// How many rows can we show?
 	maxRows := termH - 6
 	if maxRows < 3 {
 		maxRows = 3
@@ -712,7 +772,6 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 		maxRows = 15
 	}
 
-	// Scroll window
 	start := 0
 	if cursor >= maxRows {
 		start = cursor - maxRows + 1
@@ -722,12 +781,31 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 		end = len(items)
 	}
 
-	innerW := maxW - 4 // account for border+padding
+	innerW := maxW - 4 // border + padding
+	faint := lipgloss.NewStyle().Faint(true)
 
 	var sb strings.Builder
 
-	// Title line
-	sb.WriteString(styleTitle.Render(runewidth.Truncate(title, innerW, "")))
+	// Title + scroll indicator
+	scrollStr := ""
+	if total > 1 && cursor >= 0 {
+		scrollStr = fmt.Sprintf("%d/%d", cursor+1, total)
+	}
+	titleMax := innerW
+	if scrollStr != "" {
+		titleMax = innerW - runewidth.StringWidth(scrollStr) - 1
+	}
+	titleRendered := styleTitle.Render(runewidth.Truncate(title, titleMax, ""))
+	if scrollStr != "" {
+		titleW := lipgloss.Width(titleRendered)
+		pad := innerW - titleW - runewidth.StringWidth(scrollStr)
+		if pad < 1 {
+			pad = 1
+		}
+		sb.WriteString(titleRendered + strings.Repeat(" ", pad) + faint.Render(scrollStr))
+	} else {
+		sb.WriteString(titleRendered)
+	}
 	sb.WriteString("\n")
 
 	// Filter line
@@ -744,24 +822,55 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 		sb.WriteString("\n")
 	}
 
+	// Separator
+	sb.WriteString(faint.Render(strings.Repeat("─", innerW)))
+	sb.WriteString("\n")
+
+	// Compute max right-label width
+	rightW := 0
+	if rightLabels != nil {
+		for _, r := range rightLabels {
+			if w := runewidth.StringWidth(r); w > rightW {
+				rightW = w
+			}
+		}
+		if rightW > 0 {
+			rightW++ // +1 for gap
+		}
+	}
+	const prefixW = 2
+	textW := innerW - prefixW - rightW
+
 	// Item rows
 	for i := start; i < end; i++ {
-		row := runewidth.Truncate(items[i], innerW, "…")
-		row = runewidth.FillRight(row, innerW)
+		rl := ""
+		if rightLabels != nil && i < len(rightLabels) {
+			rl = rightLabels[i]
+		}
+		text := items[i]
+		if textW > 0 {
+			text = runewidth.Truncate(text, textW, "…")
+			text = runewidth.FillRight(text, textW)
+		}
 		if i == cursor {
-			sb.WriteString(styleSelected.Render(row))
+			full := "❯ " + text
+			if rightW > 0 {
+				full += " " + runewidth.FillRight(rl, rightW-1)
+			}
+			sb.WriteString(styleSelected.Render(full))
 		} else {
-			sb.WriteString(row)
+			sb.WriteString("  " + text)
+			if rightW > 0 {
+				sb.WriteString(" " + faint.Render(runewidth.FillRight(rl, rightW-1)))
+			}
 		}
 		sb.WriteString("\n")
 	}
 
-	// Footer hint
-	sb.WriteString(lipgloss.NewStyle().Faint(true).Render(runewidth.Truncate(footer, innerW, "")))
-
 	content := sb.String()
-	boxed := stylePopupBorder.Width(maxW).Render(content)
-	return boxed
+	// trim trailing newline so lipgloss border fits snugly
+	content = strings.TrimRight(content, "\n")
+	return stylePopupBorder.Width(maxW).Render(content)
 }
 
 // overlay centers the popup over the base line.

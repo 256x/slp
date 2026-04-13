@@ -3,7 +3,7 @@
 
 # --- theme ---
 # built-in themes: dracula, iceberg, monokai, solarized-dark, solarized-light,
-#                  nord, gruvbox, tokyo-night, catppuccin, rose-pine
+#                  nord, gruvbox, tokyo-night, catppuccin, rose-pine, mono
 [theme]
 # name = "iceberg"
 

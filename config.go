@@ -100,6 +100,11 @@ var builtinThemes = map[string]resolvedTheme{
 		SelectedFg: "#e0def4",
 		FilterFg:   "#f6c177",
 	},
+	"mono": {
+		Accent:     "15",
+		SelectedFg: "0",
+		FilterFg:   "7",
+	},
 }
 
 func defaultConfig() Config {
