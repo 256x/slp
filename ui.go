@@ -570,9 +570,9 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		shuffleChar = "+"
 	}
 
-	right := " " + IconShuffle + ":" + shuffleChar
+	right := " " + IconShuffle + shuffleChar
 	if s.VolumePercent != nil {
-		right = fmt.Sprintf(" %s:%d", IconVolume, *s.VolumePercent) + right
+		right = fmt.Sprintf(" %s%d", IconVolume, *s.VolumePercent) + right
 	}
 
 	prefix := playSymbol + " "
