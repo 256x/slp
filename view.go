@@ -1,0 +1,434 @@
+package main
+
+import (
+	"fmt"
+	"math"
+	"strings"
+	"time"
+
+	colorful "github.com/lucasb-eyer/go-colorful"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
+)
+
+// --- styles ---
+
+var (
+	stylePopupBorder lipgloss.Style
+	styleSelected    lipgloss.Style
+	styleTitle       lipgloss.Style
+	styleFilter      lipgloss.Style
+	styleAccent      lipgloss.Style
+	styleDim         lipgloss.Style
+
+	accentColor    colorful.Color
+	hasAccentColor bool
+)
+
+func initStyles(t resolvedTheme) {
+	stylePopupBorder = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(t.Accent)).
+		Padding(0, 1)
+	styleSelected = lipgloss.NewStyle().
+		Background(lipgloss.Color(t.Accent)).
+		Foreground(lipgloss.Color(t.SelectedFg)).
+		Bold(true)
+	styleTitle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.Accent)).
+		Bold(true)
+	styleFilter = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.FilterFg))
+	styleAccent = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.Accent))
+	styleDim = lipgloss.NewStyle().
+		Faint(true)
+
+	hasAccentColor = false
+	if c, err := colorful.Hex(t.Accent); err == nil {
+		accentColor = c
+		hasAccentColor = true
+	}
+}
+
+// --- view entry point ---
+
+var helpItems = []string{
+	"enter  play / pause",
+	"h/←   previous track",
+	"l/→   next track",
+	"k/↑   volume +5",
+	"j/↓   volume -5",
+	"s     toggle shuffle",
+	"spc   select playlist",
+	"?     key bindings",
+	"bs    go back / close",
+	"q     quit",
+	"",
+	"any key to close",
+}
+
+func (m model) View() string {
+	if !m.ready {
+		return ""
+	}
+	if m.keysMode {
+		popup := renderPopupBox("keys", helpItems, nil, -1, -1, "", false, m.width, m.height)
+		return overlay("", popup, m.width, m.height)
+	}
+	if m.helpOpen {
+		return m.renderWithHelp()
+	}
+	if m.devicePopupOpen {
+		return m.renderWithDevicePopup()
+	}
+	if m.popupOpen {
+		return m.renderWithPopup()
+	}
+	return m.renderPlayerLine()
+}
+
+// --- player line ---
+
+func (m model) renderPlayerLine() string {
+	return buildPlayerLine(m.playback, m.width, m.currentStatus(), m.vizTick)
+}
+
+func (m model) currentStatus() string {
+	if m.statusMessage != "" && time.Now().Before(m.statusExpiry) {
+		return m.statusMessage
+	}
+	return ""
+}
+
+func buildPlayerLine(s PlaybackState, width int, status string, vizTick int) string {
+	if status != "" {
+		return truncate(status, width)
+	}
+	if s.Track == "" && s.DeviceID == "" {
+		return cfg.Icons.Pause + " no active playback"
+	}
+
+	playSymbol := styleAccent.Render(cfg.Icons.Play)
+	if !s.Playing {
+		playSymbol = styleAccent.Render(cfg.Icons.Pause)
+	}
+
+	shuffleChar := "-"
+	if s.Shuffle {
+		shuffleChar = "+"
+	}
+
+	right := styleDim.Render(" " + cfg.Icons.Shuffle + " :" + shuffleChar)
+	if s.VolumePercent != nil {
+		right = styleDim.Render(fmt.Sprintf(" %s :%d", cfg.Icons.Volume, *s.VolumePercent)) + right
+	}
+
+	prefix := playSymbol + " "
+	prefixW := lipgloss.Width(prefix)
+	rightW := lipgloss.Width(right)
+
+	available := width - prefixW - rightW
+	if available < 4 {
+		return prefix + truncate(s.Track, available) + right
+	}
+
+	trackStr := "[ " + s.Track + " @ " + s.Artist + " ] "
+	trackW := runewidth.StringWidth(trackStr)
+
+	const minBar = 4
+	if trackW > available-minBar {
+		innerMax := available - minBar - 4
+		if innerMax < 1 {
+			innerMax = 1
+		}
+		inner := truncate(s.Track+" @ "+s.Artist, innerMax)
+		trackStr = "[ " + inner + " ] "
+		trackW = runewidth.StringWidth(trackStr)
+	}
+
+	barWidth := available - trackW
+	if barWidth < 0 {
+		barWidth = 0
+	}
+
+	return prefix + trackStr + progressBar(s.ProgressMS, s.DurationMS, barWidth, vizTick) + right
+}
+
+func progressBar(progressMS, durationMS, width, tick int) string {
+	if width <= 0 {
+		return ""
+	}
+	if durationMS <= 0 {
+		return styleDim.Render(strings.Repeat("-", width))
+	}
+	ratio := float64(progressMS) / float64(durationMS)
+	if ratio < 0 {
+		ratio = 0
+	} else if ratio > 1 {
+		ratio = 1
+	}
+	filled := int(float64(width) * ratio)
+
+	var sb strings.Builder
+	if hasAccentColor {
+		h, c, l := accentColor.Hcl()
+		dark := colorful.Hcl(h, c*0.4, l*0.25).Clamped()
+		offset := float64(tick) * 0.06
+		for i := range width {
+			// sine wave sweeping left to right
+			t := math.Sin(float64(i)/float64(width)*math.Pi*2-offset)*0.5 + 0.5
+			col := dark.BlendHcl(accentColor, t).Clamped()
+			st := lipgloss.NewStyle().Foreground(lipgloss.Color(col.Hex()))
+			if i < filled {
+				sb.WriteString(st.Render("="))
+			} else {
+				sb.WriteString(st.Faint(true).Render("-"))
+			}
+		}
+	} else {
+		sb.WriteString(styleAccent.Render(strings.Repeat("=", filled)))
+		sb.WriteString(styleDim.Render(strings.Repeat("-", width-filled)))
+	}
+	return sb.String()
+}
+
+func truncate(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	if maxRunes <= 1 {
+		return "…"
+	}
+	return string(runes[:maxRunes-1]) + "…"
+}
+
+// --- popup rendering ---
+
+func (m model) base() string {
+	if m.selectMode {
+		return ""
+	}
+	return m.renderPlayerLine()
+}
+
+func (m model) renderWithHelp() string {
+	popup := renderPopupBox("keys", helpItems, nil, -1, -1, "", false, m.width, m.height)
+	return overlay(m.renderPlayerLine(), popup, m.width, m.height)
+}
+
+func (m model) renderWithPopup() string {
+	if m.loading {
+		popup := renderPopupBox("playlists", []string{"loading..."}, nil, -1, -1, m.filterInput, m.filterActive, m.width, m.height)
+		return overlay(m.base(), popup, m.width, m.height)
+	}
+
+	items := make([]string, len(m.filteredLists))
+	rightLabels := make([]string, len(m.filteredLists))
+	for i, p := range m.filteredLists {
+		items[i] = p.Name
+		if p.TrackCount > 0 {
+			rightLabels[i] = fmt.Sprintf("%d", p.TrackCount)
+		}
+	}
+	if len(items) == 0 {
+		if m.filterActive {
+			items = []string{"enter: your playlists  /word: search"}
+		} else {
+			items = []string{"(no results)"}
+		}
+		rightLabels = nil
+	}
+
+	popup := renderPopupBox("playlists", items, rightLabels, m.playlistCursor, len(m.filteredLists), m.filterInput, m.filterActive, m.width, m.height)
+	return overlay(m.base(), popup, m.width, m.height)
+}
+
+func (m model) renderWithDevicePopup() string {
+	if m.deviceLoading {
+		popup := renderPopupBox("select device", []string{"loading..."}, nil, -1, -1, "", false, m.width, m.height)
+		return overlay(m.base(), popup, m.width, m.height)
+	}
+	items := make([]string, len(m.devices))
+	rightLabels := make([]string, len(m.devices))
+	for i, d := range m.devices {
+		items[i] = d.Name
+		rl := strings.ToLower(d.Type)
+		if d.IsActive {
+			rl += " ·"
+		}
+		rightLabels[i] = rl
+	}
+	if len(items) == 0 {
+		items = []string{"(no devices)"}
+		rightLabels = nil
+	}
+	popup := renderPopupBox("select device", items, rightLabels, m.deviceCursor, len(m.devices), "", false, m.width, m.height)
+	return overlay(m.base(), popup, m.width, m.height)
+}
+
+// renderPopupBox renders a centered popup box. cursor=-1 means no selection, total=-1 suppresses scroll indicator.
+func renderPopupBox(title string, items, rightLabels []string, cursor, total int, filter string, filterActive bool, termW, termH int) string {
+	maxW := termW - 4
+	if maxW > 60 {
+		maxW = 60
+	}
+	if maxW < 20 {
+		maxW = 20
+	}
+
+	maxRows := termH - 6
+	if maxRows < 3 {
+		maxRows = 3
+	}
+	if maxRows > 15 {
+		maxRows = 15
+	}
+
+	start := 0
+	if cursor >= maxRows {
+		start = cursor - maxRows + 1
+	}
+	end := start + maxRows
+	if end > len(items) {
+		end = len(items)
+	}
+
+	innerW := maxW - 4 // border + padding
+	faint := lipgloss.NewStyle().Faint(true)
+
+	var sb strings.Builder
+
+	// Title + scroll indicator
+	scrollStr := ""
+	if total > 1 && cursor >= 0 {
+		scrollStr = fmt.Sprintf("%d/%d", cursor+1, total)
+	}
+	titleMax := innerW
+	if scrollStr != "" {
+		titleMax = innerW - runewidth.StringWidth(scrollStr) - 1
+	}
+	titleRendered := styleTitle.Render(runewidth.Truncate(title, titleMax, ""))
+	if scrollStr != "" {
+		titleW := lipgloss.Width(titleRendered)
+		pad := innerW - titleW - runewidth.StringWidth(scrollStr)
+		if pad < 1 {
+			pad = 1
+		}
+		sb.WriteString(titleRendered + strings.Repeat(" ", pad) + faint.Render(scrollStr))
+	} else {
+		sb.WriteString(titleRendered)
+	}
+	sb.WriteString("\n")
+
+	// Filter line
+	if filterActive || filter != "" {
+		indicator := "❯ "
+		if filterActive {
+			indicator = styleFilter.Render("❯ ")
+		}
+		f := runewidth.Truncate(filter, innerW-2, "…")
+		sb.WriteString(indicator + f)
+		if filterActive {
+			sb.WriteString("█")
+		}
+		sb.WriteString("\n")
+	}
+
+	// Separator
+	sb.WriteString(faint.Render(strings.Repeat("─", innerW)))
+	sb.WriteString("\n")
+
+	// Compute max right-label width
+	rightW := 0
+	if rightLabels != nil {
+		for _, r := range rightLabels {
+			if w := runewidth.StringWidth(r); w > rightW {
+				rightW = w
+			}
+		}
+		if rightW > 0 {
+			rightW++ // +1 for gap
+		}
+	}
+	const prefixW = 2
+	textW := innerW - prefixW - rightW
+
+	// Item rows
+	for i := start; i < end; i++ {
+		rl := ""
+		if rightLabels != nil && i < len(rightLabels) {
+			rl = rightLabels[i]
+		}
+		text := items[i]
+		if textW > 0 {
+			text = runewidth.Truncate(text, textW, "…")
+			text = runewidth.FillRight(text, textW)
+		}
+		if i == cursor {
+			full := "❯ " + text
+			if rightW > 0 {
+				full += " " + runewidth.FillRight(rl, rightW-1)
+			}
+			sb.WriteString(styleSelected.Render(full))
+		} else {
+			sb.WriteString("  " + text)
+			if rightW > 0 {
+				sb.WriteString(" " + faint.Render(runewidth.FillRight(rl, rightW-1)))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	content := strings.TrimRight(sb.String(), "\n")
+	return stylePopupBorder.Width(maxW).Render(content)
+}
+
+// overlay centers the popup over the base line, filling the terminal height.
+func overlay(base, popup string, termW, termH int) string {
+	popupLines := strings.Split(popup, "\n")
+	popupH := len(popupLines)
+
+	popupW := 0
+	for _, l := range popupLines {
+		if w := lipgloss.Width(l); w > popupW {
+			popupW = w
+		}
+	}
+
+	startRow := (termH - popupH) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	startCol := (termW - popupW) / 2
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	blank := strings.Repeat(" ", termW)
+	var sb strings.Builder
+
+	for row := 0; row < termH-1; row++ {
+		if row >= startRow && row < startRow+popupH {
+			line := popupLines[row-startRow]
+			lineW := lipgloss.Width(line)
+			rightPad := termW - startCol - lineW
+			if rightPad < 0 {
+				rightPad = 0
+			}
+			sb.WriteString(strings.Repeat(" ", startCol))
+			sb.WriteString(line)
+			sb.WriteString(strings.Repeat(" ", rightPad))
+		} else {
+			sb.WriteString(blank)
+		}
+		if row < termH-2 {
+			sb.WriteString("\n")
+		}
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(base)
+	return sb.String()
+}

@@ -17,6 +17,7 @@ func main() {
 	logoutFlag := flag.Bool("logout", false, "remove stored token and exit")
 	debugFlag := flag.Bool("debug", false, "enable debug logging")
 	selectFlag := flag.Bool("select", false, "popup selection mode (used internally with tmux display-popup)")
+	keysFlag := flag.Bool("keys", false, "show key bindings (used internally with tmux display-popup)")
 	flag.Parse()
 
 	if *versionFlag {
@@ -35,6 +36,13 @@ func main() {
 
 	cfg = LoadConfig()
 	initStyles(cfg.Theme.resolve())
+
+	if *keysFlag {
+		m := newModel(nil, false, false, true)
+		p := tea.NewProgram(m, tea.WithAltScreen())
+		_, _ = p.Run()
+		return
+	}
 
 	clientID := os.Getenv("SPOTIFY_CLIENT_ID")
 	if clientID == "" {
@@ -77,7 +85,7 @@ func main() {
 	client := NewSpotifyClient(token, clientID, clientSecret, debugLog)
 
 	// Try to restore from cache if present
-	m := newModel(client, *debugFlag, *selectFlag)
+	m := newModel(client, *debugFlag, *selectFlag, false)
 	if !*selectFlag {
 		if cached, err := LoadPlaybackCache(); err == nil {
 			m.playback = cached

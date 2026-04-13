@@ -1,44 +1,136 @@
 # slp
 
-spotify list player
+**A Spotify player that lives in one line of your terminal.**
+
+```
+▶ [ Lo-Fi Hip Hop @ ChilledCow ] ══════════────  󰕾 :42  󰒝 :+
+```
+
+---
+
+## Concept
+
+Most Spotify clients want your attention. slp doesn't.
+
+slp is built for people who work in the terminal. You have tmux or zellij open, you're deep in a task, and you want music — without switching windows, without a GUI, without breaking flow.
+
+The entire player fits in a single line. It sits quietly at the bottom of a pane. You forget it's there, and that's the point.
+
+**Why playlists only?**
+
+A song ends in 3 minutes. An artist radio ends eventually. A playlist — especially one made by someone else — runs indefinitely. Spotify has millions of community-made playlists for every mood, genre, and activity. slp is designed around that: pick a playlist, go back to work, keep listening.
+
+**Why tmux/zellij?**
+
+The popup for playlist selection uses your multiplexer's native floating window. No alt-screen takeover, no context switch. Press `space`, pick a playlist, and the popup disappears. Your layout is untouched.
+
+[User Guide](./docs/USER_GUIDE.md)
+
+---
+
+## Requirements
+
+- Go 1.22+
+- Spotify Premium
+- [Nerd Fonts](https://www.nerdfonts.com/) (recommended, fallback to plain text icons)
+- tmux or zellij (recommended, not required)
+
+---
+
+## Install
 
 ```sh
 go install github.com/256x/slp@latest
 ```
 
-## setup
+---
 
-Spotify developer app が必要です。
+## Setup
 
-1. https://developer.spotify.com/dashboard でアプリを作成
-2. Redirect URI に `http://127.0.0.1:8888/callback` を追加
-3. Client ID と Client Secret を環境変数に設定
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and create an app
+2. Add `http://127.0.0.1:8888/callback` as a Redirect URI
+3. Set your credentials:
 
 ```sh
 export SPOTIFY_CLIENT_ID=your_client_id
 export SPOTIFY_CLIENT_SECRET=your_client_secret
 ```
 
-初回起動時にブラウザで OAuth 認証が開きます。以降はトークンが保存されます。
+Credentials can also be set in `~/.config/slp/config.toml` (created on first run).
 
-設定ファイルは初回起動時に `~/.config/slp/config.toml` に自動生成されます。
+On first launch, a browser window opens for OAuth. The token is saved locally and refreshed automatically.
 
-## keys
+---
 
-```
-p      play / pause
-l / →  next track
-h / ←  previous track
-k / ↑  volume +5
-j / ↓  volume -5
-s      toggle shuffle
-P      playlist search
-?      help
-q      quit
+## tmux setup (recommended)
+
+Add a dedicated 1-line pane at the bottom of your session:
+
+```sh
+# in your tmux config or session script
+split-window -v -l 1 'slp'
 ```
 
-## requirements
+Or start it manually in any pane — the single-line UI works at any height.
 
-- Go 1.22+
-- Spotify Premium
-- [Nerd Fonts](https://www.nerdfonts.com/) (recommended)
+## zellij setup (recommended)
+
+```sh
+zellij run -- slp
+```
+
+Or add it to your zellij layout as a fixed-size pane.
+
+---
+
+## Keys
+
+| Key | Action |
+|---|---|
+| `enter` | play / pause |
+| `space` | select playlist |
+| `h` / `←` | previous track |
+| `l` / `→` | next track |
+| `k` / `↑` | volume +5 |
+| `j` / `↓` | volume -5 |
+| `s` | toggle shuffle |
+| `?` | key bindings |
+| `q` | quit |
+
+In the playlist popup:
+
+| Key | Action |
+|---|---|
+| `enter` (empty) | load your playlists |
+| `enter` (with text) | search Spotify playlists |
+| `j` / `k` | navigate list |
+| `backspace` | back / close |
+| `esc` / `q` | close popup |
+
+---
+
+## Configuration
+
+Config file: `~/.config/slp/config.toml`
+
+```toml
+[theme]
+name = "iceberg"   # dracula, nord, gruvbox, tokyo-night, catppuccin, rose-pine, mono, ...
+
+[icons]
+# plain text fallback if Nerd Fonts unavailable
+# play = "▶"  pause = "⏸"  volume = "V"  shuffle = "S"
+
+[ui]
+tick_interval = 2  # polling interval in seconds
+```
+
+---
+
+## Flags
+
+```
+slp --version   print version
+slp --logout    remove stored token
+slp --debug     enable debug logging
+```
