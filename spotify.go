@@ -204,7 +204,7 @@ func (c *SpotifyClient) GetDevices(ctx context.Context) ([]Device, error) {
 // --- Search ---
 
 func (c *SpotifyClient) SearchPlaylists(ctx context.Context, query string) ([]Playlist, error) {
-	path := "/v1/search?q=" + url.QueryEscape(query) + "&type=playlist&limit=20"
+	path := fmt.Sprintf("/v1/search?q=%s&type=playlist&limit=%d", url.QueryEscape(query), cfg.Spotify.SearchLimit)
 	resp, err := c.do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err

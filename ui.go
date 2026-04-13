@@ -57,23 +57,27 @@ type model struct {
 // --- styles ---
 
 var (
-	stylePopupBorder = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("62")).
-				Padding(0, 1)
-
-	styleSelected = lipgloss.NewStyle().
-			Background(lipgloss.Color("62")).
-			Foreground(lipgloss.Color("230")).
-			Bold(true)
-
-	styleTitle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("62")).
-			Bold(true)
-
-	styleFilter = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("220"))
+	stylePopupBorder lipgloss.Style
+	styleSelected    lipgloss.Style
+	styleTitle       lipgloss.Style
+	styleFilter      lipgloss.Style
 )
+
+func initStyles(t resolvedTheme) {
+	stylePopupBorder = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(t.Accent)).
+		Padding(0, 1)
+	styleSelected = lipgloss.NewStyle().
+		Background(lipgloss.Color(t.Accent)).
+		Foreground(lipgloss.Color(t.SelectedFg)).
+		Bold(true)
+	styleTitle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.Accent)).
+		Bold(true)
+	styleFilter = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.FilterFg))
+}
 
 // --- init ---
 
@@ -97,8 +101,11 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+var cfg Config
+
 func tick() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+	d := time.Duration(cfg.UI.TickInterval) * time.Second
+	return tea.Tick(d, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -146,7 +153,7 @@ func playCmd(client *SpotifyClient, uri, deviceID string) tea.Cmd {
 		time.Sleep(300 * time.Millisecond)
 		state, err := client.GetCurrentPlayback(ctx)
 		if err != nil {
-			return statusMsg{Text: "Playback started"}
+			return statusMsg{Text: "playback started"}
 		}
 		return playbackUpdatedMsg{State: state}
 	}
@@ -172,7 +179,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case playlistsLoadedMsg:
 		m.loading = false
 		if msg.Err != nil {
-			m.setStatus("Failed to load playlists: " + msg.Err.Error())
+			m.setStatus("failed to load playlists: " + msg.Err.Error())
 		} else {
 			pl := msg.Playlists
 			sort.Slice(pl, func(i, j int) bool {
@@ -188,13 +195,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.deviceLoading = false
 		if msg.Err != nil {
 			m.devicePopupOpen = false
-			m.setStatus("Failed to load devices: " + msg.Err.Error())
+			m.setStatus("failed to load devices: " + msg.Err.Error())
 		} else {
 			m.devices = msg.Devices
 			m.deviceCursor = 0
 			if len(m.devices) == 0 {
 				m.devicePopupOpen = false
-				m.setStatus("No devices available")
+				m.setStatus("no devices available")
 			}
 		}
 
@@ -220,7 +227,7 @@ func friendlyError(err error) string {
 	if err == nil {
 		return ""
 	}
-	return "Error: " + err.Error()
+	return "error: " + err.Error()
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -299,7 +306,7 @@ func (m model) handleDevicePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return tea.QuitMsg{}
 			}
 		}
-		m.setStatus("Starting on: " + selected.Name)
+		m.setStatus("starting on: " + selected.Name)
 		return m, playCmd(m.client, m.pendingURI, selected.ID)
 	}
 	return m, nil
@@ -321,7 +328,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "p":
 		if m.playback.DeviceID == "" {
-			m.setStatus("No active Spotify device")
+			m.setStatus("no active spotify device")
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -352,14 +359,14 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "l", "right":
 		if m.playback.DeviceID == "" {
-			m.setStatus("No active Spotify device")
+			m.setStatus("no active spotify device")
 			return m, nil
 		}
 		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Next)
 
 	case "h", "left":
 		if m.playback.DeviceID == "" {
-			m.setStatus("No active Spotify device")
+			m.setStatus("no active spotify device")
 			return m, nil
 		}
 		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Previous)
@@ -376,7 +383,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "s", "S":
 		if m.playback.DeviceID == "" {
-			m.setStatus("No active Spotify device")
+			m.setStatus("no active spotify device")
 			return m, nil
 		}
 		newShuffle := !m.playback.Shuffle
@@ -405,10 +412,10 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) adjustVolume(delta int) tea.Cmd {
 	if m.playback.DeviceID == "" {
-		return func() tea.Msg { return statusMsg{Text: "No active Spotify device"} }
+		return func() tea.Msg { return statusMsg{Text: "no active spotify device"} }
 	}
 	if m.playback.VolumePercent == nil {
-		return func() tea.Msg { return statusMsg{Text: "Volume not supported on this device"} }
+		return func() tea.Msg { return statusMsg{Text: "volume not supported on this device"} }
 	}
 	newVol := *m.playback.VolumePercent + delta
 	if newVol < 0 {
@@ -440,14 +447,11 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filteredLists = m.playlists
 			m.playlistCursor = 0
 		case "enter":
-			if m.filterInput == "" {
-				break
-			}
 			m.filterActive = false
 			m.loading = true
 			m.filteredLists = nil
 			m.playlistCursor = 0
-			if m.filterInput == "0" {
+			if m.filterInput == "" {
 				return m, fetchPlaylists(m.client)
 			}
 			return m, searchPlaylists(m.client, m.filterInput)
@@ -525,16 +529,16 @@ func (m model) View() string {
 
 func (m model) renderWithHelp() string {
 	items := []string{
-		"p        Play / Pause",
-		"h / ←   Previous track",
-		"l / →   Next track",
-		"k / ↑   Volume +5",
-		"j / ↓   Volume -5",
-		"s        Toggle shuffle",
-		"P        Select playlist",
-		"q        Quit",
+		"p        play / pause",
+		"h / ←   previous track",
+		"l / →   next track",
+		"k / ↑   volume +5",
+		"j / ↓   volume -5",
+		"s        toggle shuffle",
+		"P        select playlist",
+		"q        quit",
 	}
-	popup := renderPopupBox("Keys", items, -1, "", false, "any key to close", m.width, m.height)
+	popup := renderPopupBox("keys", items, -1, "", false, "any key to close", m.width, m.height)
 	return overlay(m.renderPlayerLine(), popup, m.width, m.height)
 }
 
@@ -557,12 +561,12 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		return truncate(status, width)
 	}
 	if s.Track == "" && s.DeviceID == "" {
-		return IconPause + " No active playback"
+		return cfg.Icons.Pause + " nothing to play..."
 	}
 
-	playSymbol := IconPlay
+	playSymbol := cfg.Icons.Play
 	if !s.Playing {
-		playSymbol = IconPause
+		playSymbol = cfg.Icons.Pause
 	}
 
 	shuffleChar := "-"
@@ -570,9 +574,9 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		shuffleChar = "+"
 	}
 
-	right := " " + IconShuffle + shuffleChar
+	right := " " + cfg.Icons.Shuffle + " :" + shuffleChar
 	if s.VolumePercent != nil {
-		right = fmt.Sprintf(" %s%d", IconVolume, *s.VolumePercent) + right
+		right = fmt.Sprintf(" %s :%d", cfg.Icons.Volume, *s.VolumePercent) + right
 	}
 
 	prefix := playSymbol + " "
@@ -640,9 +644,9 @@ func truncate(s string, maxRunes int) string {
 // --- popup rendering ---
 
 func (m model) renderWithPopup() string {
-	footer := "↑↓/jk select  Enter play  / search  Esc close"
+	footer := "[↑↓/jk]:select [enter]:play [esc]:close"
 	if m.loading {
-		popup := renderPopupBox("Playlist Search", []string{"Loading..."}, -1, m.filterInput, m.filterActive, footer, m.width, m.height)
+		popup := renderPopupBox("playlist search", []string{"loading..."}, -1, m.filterInput, m.filterActive, footer, m.width, m.height)
 		return overlay(m.base(), popup, m.width, m.height)
 	}
 
@@ -652,20 +656,20 @@ func (m model) renderWithPopup() string {
 	}
 	if len(items) == 0 {
 		if m.filterActive {
-			items = []string{"0: own playlists  /  other: Spotify search"}
+			items = []string{"[enter]:own playlists  [words]:search"}
 		} else {
 			items = []string{"(no results)"}
 		}
 	}
 
-	popup := renderPopupBox("Playlist Search", items, m.playlistCursor, m.filterInput, m.filterActive, footer, m.width, m.height)
+	popup := renderPopupBox("found playlists", items, m.playlistCursor, m.filterInput, m.filterActive, footer, m.width, m.height)
 	return overlay(m.base(), popup, m.width, m.height)
 }
 
 func (m model) renderWithDevicePopup() string {
-	footer := "↑↓/jk select  Enter play  Esc back"
+	footer := "[↑↓/jk]:select [enter]:play [esc]:back"
 	if m.deviceLoading {
-		popup := renderPopupBox("Select Device", []string{"Loading..."}, -1, "", false, footer, m.width, m.height)
+		popup := renderPopupBox("select device", []string{"loading..."}, -1, "", false, footer, m.width, m.height)
 		return overlay(m.base(), popup, m.width, m.height)
 	}
 	items := make([]string, len(m.devices))
@@ -679,7 +683,7 @@ func (m model) renderWithDevicePopup() string {
 	if len(items) == 0 {
 		items = []string{"(no devices)"}
 	}
-	popup := renderPopupBox("Select Device", items, m.deviceCursor, "", false, footer, m.width, m.height)
+	popup := renderPopupBox("select device", items, m.deviceCursor, "", false, footer, m.width, m.height)
 	return overlay(m.base(), popup, m.width, m.height)
 }
 
@@ -728,9 +732,9 @@ func renderPopupBox(title string, items []string, cursor int, filter string, fil
 
 	// Filter line
 	if filterActive || filter != "" {
-		indicator := "/"
+		indicator := "❯ "
 		if filterActive {
-			indicator = styleFilter.Render("/")
+			indicator = styleFilter.Render("❯ ")
 		}
 		f := runewidth.Truncate(filter, innerW-2, "…")
 		sb.WriteString(indicator + f)

@@ -33,11 +33,20 @@ func main() {
 		return
 	}
 
+	cfg = LoadConfig()
+	initStyles(cfg.Theme.resolve())
+
 	clientID := os.Getenv("SPOTIFY_CLIENT_ID")
+	if clientID == "" {
+		clientID = cfg.Spotify.ClientID
+	}
 	clientSecret := os.Getenv("SPOTIFY_CLIENT_SECRET")
+	if clientSecret == "" {
+		clientSecret = cfg.Spotify.ClientSecret
+	}
 	redirectURI := os.Getenv("SPOTIFY_REDIRECT_URI")
 	if redirectURI == "" {
-		redirectURI = "http://127.0.0.1:8888/callback"
+		redirectURI = cfg.Spotify.RedirectURI
 	}
 
 	if clientID == "" || clientSecret == "" {
