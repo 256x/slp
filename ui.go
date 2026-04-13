@@ -596,7 +596,7 @@ func buildPlayerLine(s PlaybackState, width int, status string, vizTick int) str
 		return truncate(status, width)
 	}
 	if s.Track == "" && s.DeviceID == "" {
-		return cfg.Icons.Pause + " nothing to play..."
+		return cfg.Icons.Pause + " waiting for playlist..."
 	}
 
 	playSymbol := styleAccent.Render(cfg.Icons.Play)
