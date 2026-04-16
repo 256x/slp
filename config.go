@@ -149,11 +149,14 @@ func (t ThemeConfig) resolve() resolvedTheme {
 }
 
 func configPath() string {
-	base := os.Getenv("XDG_CONFIG_HOME")
-	if base == "" {
-		base = filepath.Join(os.Getenv("HOME"), ".config")
+	if base := os.Getenv("XDG_CONFIG_HOME"); base != "" {
+		return filepath.Join(base, "slp", "config.toml")
 	}
-	return filepath.Join(base, "slp", "config.toml")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	return filepath.Join(home, ".config", "slp", "config.toml")
 }
 
 func LoadConfig() Config {

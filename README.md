@@ -54,6 +54,8 @@ go install github.com/256x/slp@latest
 ```sh
 export SPOTIFY_CLIENT_ID=your_client_id
 export SPOTIFY_CLIENT_SECRET=your_client_secret
+# optional: override the default redirect URI
+export SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
 Credentials can also be set in `~/.config/slp/config.toml` (created on first run).
@@ -95,7 +97,7 @@ Or add it to your zellij layout as a fixed-size pane.
 | `j` / `↓` | volume -5 |
 | `s` | toggle shuffle |
 | `?` | key bindings |
-| `q` | quit |
+| `q` / `esc` | quit (pauses playback) |
 
 In the playlist popup:
 
@@ -104,8 +106,18 @@ In the playlist popup:
 | `enter` (empty) | load your playlists |
 | `enter` (with text) | search Spotify playlists |
 | `j` / `k` | navigate list |
+| `/` | re-enter filter mode |
 | `backspace` | back / close |
 | `esc` / `q` | close popup |
+
+In the device picker:
+
+| Key | Action |
+|---|---|
+| `j` / `k` | navigate list |
+| `enter` | select device and start playback |
+| `backspace` / `esc` | back to playlist popup |
+| `q` / `ctrl+c` | quit |
 
 ---
 
@@ -120,6 +132,12 @@ name = "iceberg"   # dracula, nord, gruvbox, tokyo-night, catppuccin, rose-pine,
 [icons]
 # plain text fallback if Nerd Fonts unavailable
 # play = "▶"  pause = "⏸"  volume = "V"  shuffle = "S"
+
+[spotify]
+# client_id     = ""          # alternative to SPOTIFY_CLIENT_ID env var
+# client_secret = ""          # alternative to SPOTIFY_CLIENT_SECRET env var
+# redirect_uri  = "http://127.0.0.1:8888/callback"
+# search_limit  = 20          # number of results returned by playlist search
 
 [ui]
 tick_interval = 2  # polling interval in seconds

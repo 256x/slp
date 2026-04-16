@@ -9,6 +9,7 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
+	"github.com/muesli/termenv"
 )
 
 // --- styles ---
@@ -48,6 +49,13 @@ func initStyles(t resolvedTheme) {
 	if c, err := colorful.Hex(t.Accent); err == nil {
 		accentColor = c
 		hasAccentColor = true
+	} else {
+		// Try as a termenv color (handles 256-color indices like "62")
+		col := termenv.TrueColor.Color(t.Accent)
+		if rgb := termenv.ConvertToRGB(col); rgb != (colorful.Color{}) {
+			accentColor = rgb
+			hasAccentColor = true
+		}
 	}
 }
 

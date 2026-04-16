@@ -37,7 +37,8 @@ Press `space`. A floating popup appears using your multiplexer's native window.
 
 **4. Select a device**
 
-After choosing a playlist, a device picker appears. Select the device you want to play on.
+After choosing a playlist, a device picker appears.
+Use `j` / `k` to navigate and `enter` to select. `backspace` or `esc` goes back to the playlist popup.
 
 **5. Go back to work**
 
@@ -72,7 +73,22 @@ Use `j` / `k` or arrow keys. Press `enter` to select.
 **Going back:**
 `backspace` from list mode returns to filter mode.
 `backspace` from filter mode with empty input closes the popup.
-`esc` / `q` closes the popup from anywhere.
+`esc` from filter mode exits filter mode and returns to list mode.
+`esc` / `q` from list mode closes the popup.
+
+---
+
+## Device Picker
+
+After selecting a playlist, a device picker appears showing all available Spotify Connect devices.
+The active device is marked with `·` in the right column.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | navigate list |
+| `enter` | select device and start playback |
+| `backspace` / `esc` | back to playlist popup |
+| `q` / `ctrl+c` | quit |
 
 ---
 
@@ -109,6 +125,22 @@ Colors accept hex (`#rrggbb`) or terminal 256-color numbers.
 
 ---
 
+## Spotify Settings
+
+Configure credentials and search behavior in config:
+
+```toml
+[spotify]
+client_id     = ""   # alternative to SPOTIFY_CLIENT_ID env var
+client_secret = ""   # alternative to SPOTIFY_CLIENT_SECRET env var
+redirect_uri  = "http://127.0.0.1:8888/callback"
+search_limit  = 20   # number of results returned by playlist search
+```
+
+Environment variables (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`) take precedence over config file values.
+
+---
+
 ## Icons
 
 Defaults use Nerd Fonts glyphs. If Nerd Fonts is not available, set plain text fallbacks:
@@ -139,6 +171,12 @@ slp works in any terminal. In non-tmux/zellij environments:
 - `?` shows key bindings as an inline overlay
 
 The single-line player still works in a full-height terminal window.
+
+---
+
+## Quitting
+
+Press `q`, `esc`, or `ctrl+c` to quit. If a track is playing, slp pauses it before exiting.
 
 ---
 

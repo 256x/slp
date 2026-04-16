@@ -24,6 +24,9 @@ type TokenData struct {
 }
 
 func configDir() string {
+	if base := os.Getenv("XDG_CONFIG_HOME"); base != "" {
+		return filepath.Join(base, "slp")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ".config/slp"

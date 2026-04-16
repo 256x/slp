@@ -7,6 +7,9 @@ import (
 )
 
 func cacheDir() string {
+	if base := os.Getenv("XDG_CACHE_HOME"); base != "" {
+		return filepath.Join(base, "slp")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ".cache/slp"
