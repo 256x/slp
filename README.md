@@ -43,6 +43,8 @@ The popup for playlist selection uses your multiplexer's native floating window.
 go install github.com/256x/slp@latest
 ```
 
+Or download a pre-built binary from the [releases page](https://github.com/256x/slp/releases).
+
 ---
 
 ## Setup
