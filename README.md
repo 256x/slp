@@ -14,6 +14,7 @@ Most Spotify clients want your attention. 'slp' doesn't.
 
 'slp' is built for people who work in the terminal. You have tmux or zellij open, you're deep in a task, and you want music — without switching windows, without a GUI, without breaking flow.
 
+
 The entire player fits in a single line. It sits quietly at the bottom of a pane. You forget it's there, and that's the point.
 
 **Why playlists only?**
