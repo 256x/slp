@@ -2,9 +2,7 @@
 
 **A Spotify player that lives in one line of your terminal.**
 
-```
-▶ [ Lo-Fi Hip Hop @ ChilledCow ] ══════════────  󰕾 :42  󰒝 :+
-```
+![slp](https://github.com/user-attachments/assets/36e82b55-d348-4a1f-b7ab-a9fb1944cc88)
 
 ---
 
