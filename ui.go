@@ -178,9 +178,9 @@ func openExternalSelect(client *SpotifyClient) tea.Cmd {
 		var cmd *exec.Cmd
 		switch {
 		case os.Getenv("TMUX") != "":
-			cmd = exec.Command("tmux", "display-popup", "-E", "-w", "80%", "-h", "60%", exe, "--select")
+			cmd = exec.Command("tmux", "display-popup", "-E", "-w", "66", "-h", "22", exe, "--select")
 		case os.Getenv("ZELLIJ") != "":
-			cmd = exec.Command("zellij", "run", "--floating", "--close-on-exit", "--", exe, "--select")
+			cmd = exec.Command("zellij", "run", "--floating", "--close-on-exit", "--width", "66", "--height", "22", "--", exe, "--select")
 		}
 		if cmd != nil {
 			_ = cmd.Run()
