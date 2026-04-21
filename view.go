@@ -227,9 +227,16 @@ func (m model) renderWithHelp() string {
 }
 
 func (m model) renderWithPopup() string {
+	var hints string
+	if m.filterActive {
+		hints = renderHints([]string{"enter", "playlists"}, []string{"word", "search"}, []string{"bs", "back"}, []string{"esc", "close"})
+	} else {
+		hints = renderHints([]string{"↑↓", "move"}, []string{"enter", "play"}, []string{"/", "search"}, []string{"bs", "back"}, []string{"esc", "close"})
+	}
+
 	if m.loading {
 		popup := renderPopupBox("playlists", []string{"loading..."}, nil, -1, -1, m.filterInput, m.filterActive, m.width, m.height)
-		return overlay(m.base(), popup, m.width, m.height)
+		return overlay(hints, popup, m.width, m.height)
 	}
 
 	items := make([]string, len(m.filteredLists))
@@ -241,16 +248,12 @@ func (m model) renderWithPopup() string {
 		}
 	}
 	if len(items) == 0 {
-		if m.filterActive {
-			items = []string{"enter: your playlists  /word: search"}
-		} else {
-			items = []string{"(no results)"}
-		}
+		items = []string{"(no results)"}
 		rightLabels = nil
 	}
 
 	popup := renderPopupBox("playlists", items, rightLabels, m.playlistCursor, len(m.filteredLists), m.filterInput, m.filterActive, m.width, m.height)
-	return overlay(m.base(), popup, m.width, m.height)
+	return overlay(hints, popup, m.width, m.height)
 }
 
 func (m model) renderWithDevicePopup() string {
@@ -391,6 +394,14 @@ func renderPopupBox(title string, items, rightLabels []string, cursor, total int
 
 	content := strings.TrimRight(sb.String(), "\n")
 	return stylePopupBorder.Width(maxW).Render(content)
+}
+
+func renderHints(pairs ...[]string) string {
+	parts := make([]string, len(pairs))
+	for i, p := range pairs {
+		parts[i] = styleAccent.Render(p[0]) + styleDim.Render(":"+p[1])
+	}
+	return strings.Join(parts, styleDim.Render("  "))
 }
 
 // overlay centers the popup over the base line, filling the terminal height.
