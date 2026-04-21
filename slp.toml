@@ -2,10 +2,11 @@
 # place this file at ~/.config/slp/config.toml
 
 # --- theme ---
-# built-in themes: dracula, iceberg, monokai, solarized-dark, solarized-light,
-#                  nord, gruvbox, tokyo-night, catppuccin, rose-pine, mono
+# built-in themes: terminal (default), dracula, iceberg, monokai, solarized-dark,
+#                  solarized-light, nord, gruvbox, tokyo-night, catppuccin, rose-pine, mono
+# "terminal" reads your terminal's foreground color and uses it as the accent.
 [theme]
-# name = "iceberg"
+# name = "terminal"
 
 # custom colors (hex or terminal 256-color number)
 # overrides the named theme if both are set

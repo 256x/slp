@@ -50,7 +50,7 @@ Or download a pre-built binary from the [releases page](https://github.com/256x/
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and create an app
 2. Add `http://127.0.0.1:8888/callback` as a Redirect URI
-3. Set your credentials:
+3. Set your credentials — either as environment variables:
 
 ```sh
 export SPOTIFY_CLIENT_ID=your_client_id
@@ -59,7 +59,15 @@ export SPOTIFY_CLIENT_SECRET=your_client_secret
 export SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
-Credentials can also be set in `~/.config/slp/config.toml` (created on first run).
+Or in `~/.config/slp/config.toml` (created automatically on first run):
+
+```toml
+[spotify]
+client_id     = "your_client_id"
+client_secret = "your_client_secret"
+```
+
+Environment variables take precedence over the config file if both are set.
 
 On first launch, a browser window opens for OAuth. The token is saved locally and refreshed automatically.
 
@@ -128,7 +136,10 @@ Config file: `~/.config/slp/config.toml`
 
 ```toml
 [theme]
-name = "iceberg"   # dracula, nord, gruvbox, tokyo-night, catppuccin, rose-pine, mono, ...
+# default: "terminal" — reads your terminal's foreground color automatically
+# other built-ins: dracula, nord, gruvbox, tokyo-night, catppuccin, rose-pine,
+#                  iceberg, monokai, solarized-dark, solarized-light, mono
+# name = "terminal"
 
 [icons]
 # plain text fallback if Nerd Fonts unavailable

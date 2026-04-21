@@ -94,29 +94,31 @@ The active device is marked with `·` in the right column.
 
 ## Progress Bar
 
-The progress bar fills the available space between the track info and the right-side indicators.
+The progress bar fills the available space between the track info and the right-side indicators, using `=` for elapsed and `-` for remaining time.
 
-With a theme accent color set, the bar animates with a sine wave gradient. Without a hex color, it uses plain `=` / `-` characters.
+During playback, the track name, artist, and progress bar are rendered together as a single animated color gradient.
 
 ---
 
 ## Themes
 
-Set a built-in theme in config:
+The default theme is `terminal`, which reads the foreground color from your terminal emulator and uses it as the accent color. This means slp automatically adapts to your terminal's color scheme.
+
+To use a different theme:
 
 ```toml
 [theme]
 name = "tokyo-night"
 ```
 
-Available themes: `dracula`, `iceberg`, `monokai`, `solarized-dark`, `solarized-light`, `nord`, `gruvbox`, `tokyo-night`, `catppuccin`, `rose-pine`, `mono`
+Available themes: `terminal` (default), `dracula`, `iceberg`, `monokai`, `solarized-dark`, `solarized-light`, `nord`, `gruvbox`, `tokyo-night`, `catppuccin`, `rose-pine`, `mono`
 
-Override individual colors:
+Override individual colors (takes effect regardless of named theme):
 
 ```toml
 [theme]
 name = "nord"
-accent = "#88c0d0"      # progress bar, borders, icons
+accent = "#88c0d0"      # gradient base, borders, icons
 selected_fg = "#eceff4" # selected item text
 filter_fg = "#ebcb8b"   # filter prompt
 ```

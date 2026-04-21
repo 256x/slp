@@ -35,7 +35,14 @@ func main() {
 	}
 
 	cfg = LoadConfig()
-	initStyles(cfg.Theme.resolve())
+	theme := cfg.Theme.resolve()
+	if theme.UseTerminalColor {
+		if hex := queryTerminalFgHex(); hex != "" {
+			theme.Accent = hex
+		}
+	}
+	initStyles(theme)
+	initGradient()
 
 	if *keysFlag {
 		m := newModel(nil, false, false, true)
@@ -58,7 +65,10 @@ func main() {
 	}
 
 	if clientID == "" || clientSecret == "" {
-		fmt.Fprintln(os.Stderr, "error: SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set")
+		fmt.Fprintln(os.Stderr, "error: Spotify credentials not set.")
+		fmt.Fprintln(os.Stderr, "  Set environment variables:  SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET")
+		fmt.Fprintln(os.Stderr, "  Or add to config file:      ~/.config/slp/config.toml")
+		fmt.Fprintln(os.Stderr, "  See: https://github.com/256x/slp#setup")
 		os.Exit(1)
 	}
 

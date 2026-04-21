@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -99,7 +98,7 @@ func (m model) View() string {
 // --- player line ---
 
 func (m model) renderPlayerLine() string {
-	return buildPlayerLine(m.playback, m.width, m.currentStatus(), m.vizTick)
+	return buildPlayerLine(m.playback, m.width, m.currentStatus())
 }
 
 func (m model) currentStatus() string {
@@ -109,12 +108,12 @@ func (m model) currentStatus() string {
 	return ""
 }
 
-func buildPlayerLine(s PlaybackState, width int, status string, vizTick int) string {
+func buildPlayerLine(s PlaybackState, width int, status string) string {
 	if status != "" {
 		return truncate(status, width)
 	}
 	if s.Track == "" && s.DeviceID == "" {
-		return cfg.Icons.Pause + " no active playback"
+		return styleAccent.Render("[slp]") + styleDim.Render(" no active playback — [space] select")
 	}
 
 	playSymbol := styleAccent.Render(cfg.Icons.Play)
@@ -126,49 +125,55 @@ func buildPlayerLine(s PlaybackState, width int, status string, vizTick int) str
 	if s.Shuffle {
 		shuffleChar = "+"
 	}
-
-	right := styleDim.Render(" " + cfg.Icons.Shuffle + " :" + shuffleChar)
+	right := styleDim.Render(fmt.Sprintf(" %s:%s", cfg.Icons.Shuffle, shuffleChar))
 	if s.VolumePercent != nil {
-		right = styleDim.Render(fmt.Sprintf(" %s :%d", cfg.Icons.Volume, *s.VolumePercent)) + right
+		right = styleDim.Render(fmt.Sprintf(" %s:%d", cfg.Icons.Volume, *s.VolumePercent)) + right
 	}
 
-	prefix := playSymbol + " "
+	prefix := styleAccent.Render("[slp]") + " " + playSymbol + " "
 	prefixW := lipgloss.Width(prefix)
 	rightW := lipgloss.Width(right)
-
 	available := width - prefixW - rightW
+
 	if available < 4 {
 		return prefix + truncate(s.Track, available) + right
 	}
 
-	trackStr := "[ " + s.Track + " @ " + s.Artist + " ] "
-	trackW := runewidth.StringWidth(trackStr)
+	text := s.Track + " @ " + s.Artist + " "
+	textW := runewidth.StringWidth(text)
 
 	const minBar = 4
-	if trackW > available-minBar {
-		innerMax := available - minBar - 4
+	if textW > available-minBar {
+		innerMax := available - minBar - 3
 		if innerMax < 1 {
 			innerMax = 1
 		}
-		inner := truncate(s.Track+" @ "+s.Artist, innerMax)
-		trackStr = "[ " + inner + " ] "
-		trackW = runewidth.StringWidth(trackStr)
+		text = truncate(s.Track+" @ "+s.Artist, innerMax) + " "
+		textW = runewidth.StringWidth(text)
 	}
 
-	barWidth := available - trackW
+	barWidth := available - textW
 	if barWidth < 0 {
 		barWidth = 0
 	}
 
-	return prefix + trackStr + progressBar(s.ProgressMS, s.DurationMS, barWidth, vizTick) + right
+	bar, filledW := progressBarChars(s.ProgressMS, s.DurationMS, barWidth)
+	if s.Playing {
+		return prefix + grad.Render(text+bar) + right
+	}
+	return prefix + text +
+		styleAccent.Render(bar[:filledW]) +
+		styleDim.Render(bar[filledW:]) +
+		right
 }
 
-func progressBar(progressMS, durationMS, width, tick int) string {
+// progressBarChars returns the bar as a plain string and the number of filled characters.
+func progressBarChars(progressMS, durationMS, width int) (string, int) {
 	if width <= 0 {
-		return ""
+		return "", 0
 	}
 	if durationMS <= 0 {
-		return styleDim.Render(strings.Repeat("-", width))
+		return strings.Repeat("-", width), 0
 	}
 	ratio := float64(progressMS) / float64(durationMS)
 	if ratio < 0 {
@@ -177,28 +182,7 @@ func progressBar(progressMS, durationMS, width, tick int) string {
 		ratio = 1
 	}
 	filled := int(float64(width) * ratio)
-
-	var sb strings.Builder
-	if hasAccentColor {
-		h, c, l := accentColor.Hcl()
-		dark := colorful.Hcl(h, c*0.4, l*0.25).Clamped()
-		offset := float64(tick) * 0.06
-		for i := range width {
-			// sine wave sweeping left to right
-			t := math.Sin(float64(i)/float64(width)*math.Pi*2-offset)*0.5 + 0.5
-			col := dark.BlendHcl(accentColor, t).Clamped()
-			st := lipgloss.NewStyle().Foreground(lipgloss.Color(col.Hex()))
-			if i < filled {
-				sb.WriteString(st.Render("="))
-			} else {
-				sb.WriteString(st.Faint(true).Render("-"))
-			}
-		}
-	} else {
-		sb.WriteString(styleAccent.Render(strings.Repeat("=", filled)))
-		sb.WriteString(styleDim.Render(strings.Repeat("-", width-filled)))
-	}
-	return sb.String()
+	return strings.Repeat("=", filled) + strings.Repeat("-", width-filled), filled
 }
 
 func truncate(s string, maxRunes int) string {

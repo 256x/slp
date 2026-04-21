@@ -44,12 +44,19 @@ type Config struct {
 }
 
 type resolvedTheme struct {
-	Accent     string
-	SelectedFg string
-	FilterFg   string
+	Accent           string
+	SelectedFg       string
+	FilterFg         string
+	UseTerminalColor bool
 }
 
 var builtinThemes = map[string]resolvedTheme{
+	"terminal": {
+		Accent:           "#84a0c6", // placeholder, replaced at runtime with terminal fg
+		SelectedFg:       "#c6c8d1",
+		FilterFg:         "#89b8c2",
+		UseTerminalColor: true,
+	},
 	"dracula": {
 		Accent:     "#bd93f9",
 		SelectedFg: "#f8f8f2",
@@ -109,6 +116,9 @@ var builtinThemes = map[string]resolvedTheme{
 
 func defaultConfig() Config {
 	return Config{
+		Theme: ThemeConfig{
+			Name: "terminal",
+		},
 		Icons: IconsConfig{
 			Play:    "󰐊",
 			Pause:   "󰏤",

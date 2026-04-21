@@ -51,7 +51,6 @@ type model struct {
 	keysMode        bool
 	client          *SpotifyClient
 	debug           bool
-	vizTick         int
 }
 
 var cfg Config
@@ -207,7 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(fetchPlayback(m.client), tick())
 
 	case vizTickMsg:
-		m.vizTick++
+		grad.Tick(m.loading, m.playback.Playing)
 		return m, vizTick()
 
 	case playbackUpdatedMsg:
