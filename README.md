@@ -2,7 +2,7 @@
 
 **A Spotify player that lives in one line of your terminal.**
 
-![slp](https://github.com/user-attachments/assets/36e82b55-d348-4a1f-b7ab-a9fb1944cc88)
+![slp](https://github.com/user-attachments/assets/bf13794b-b139-4664-b143-b380a717e484)
 
 ---
 
