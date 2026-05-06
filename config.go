@@ -169,6 +169,22 @@ func configPath() string {
 	return filepath.Join(home, ".config", "slp", "config.toml")
 }
 
+func mergeConfig(dst *Config, src Config, meta toml.MetaData) {
+	if meta.IsDefined("theme", "name") { dst.Theme.Name = src.Theme.Name }
+	if meta.IsDefined("theme", "accent") { dst.Theme.Accent = src.Theme.Accent }
+	if meta.IsDefined("theme", "selected_fg") { dst.Theme.SelectedFg = src.Theme.SelectedFg }
+	if meta.IsDefined("theme", "filter_fg") { dst.Theme.FilterFg = src.Theme.FilterFg }
+	if meta.IsDefined("icons", "play") { dst.Icons.Play = src.Icons.Play }
+	if meta.IsDefined("icons", "pause") { dst.Icons.Pause = src.Icons.Pause }
+	if meta.IsDefined("icons", "volume") { dst.Icons.Volume = src.Icons.Volume }
+	if meta.IsDefined("icons", "shuffle") { dst.Icons.Shuffle = src.Icons.Shuffle }
+	if meta.IsDefined("spotify", "client_id") { dst.Spotify.ClientID = src.Spotify.ClientID }
+	if meta.IsDefined("spotify", "client_secret") { dst.Spotify.ClientSecret = src.Spotify.ClientSecret }
+	if meta.IsDefined("spotify", "redirect_uri") { dst.Spotify.RedirectURI = src.Spotify.RedirectURI }
+	if meta.IsDefined("spotify", "search_limit") { dst.Spotify.SearchLimit = src.Spotify.SearchLimit }
+	if meta.IsDefined("ui", "tick_interval") { dst.UI.TickInterval = src.UI.TickInterval }
+}
+
 func LoadConfig() Config {
 	cfg := defaultConfig()
 	path := configPath()
@@ -178,50 +194,11 @@ func LoadConfig() Config {
 		_ = os.WriteFile(path, sampleConfig, 0o644)
 		return cfg
 	}
-	// Decode into a partial struct so missing fields keep defaults
 	var file Config
-	if _, err := toml.Decode(string(data), &file); err != nil {
+	meta, err := toml.Decode(string(data), &file)
+	if err != nil {
 		return cfg
 	}
-	// Merge: only override fields that were explicitly set
-	if file.Theme.Name != "" {
-		cfg.Theme.Name = file.Theme.Name
-	}
-	if file.Theme.Accent != "" {
-		cfg.Theme.Accent = file.Theme.Accent
-	}
-	if file.Theme.SelectedFg != "" {
-		cfg.Theme.SelectedFg = file.Theme.SelectedFg
-	}
-	if file.Theme.FilterFg != "" {
-		cfg.Theme.FilterFg = file.Theme.FilterFg
-	}
-	if file.Icons.Play != "" {
-		cfg.Icons.Play = file.Icons.Play
-	}
-	if file.Icons.Pause != "" {
-		cfg.Icons.Pause = file.Icons.Pause
-	}
-	if file.Icons.Volume != "" {
-		cfg.Icons.Volume = file.Icons.Volume
-	}
-	if file.Icons.Shuffle != "" {
-		cfg.Icons.Shuffle = file.Icons.Shuffle
-	}
-	if file.Spotify.ClientID != "" {
-		cfg.Spotify.ClientID = file.Spotify.ClientID
-	}
-	if file.Spotify.ClientSecret != "" {
-		cfg.Spotify.ClientSecret = file.Spotify.ClientSecret
-	}
-	if file.Spotify.RedirectURI != "" {
-		cfg.Spotify.RedirectURI = file.Spotify.RedirectURI
-	}
-	if file.Spotify.SearchLimit != 0 {
-		cfg.Spotify.SearchLimit = file.Spotify.SearchLimit
-	}
-	if file.UI.TickInterval != 0 {
-		cfg.UI.TickInterval = file.UI.TickInterval
-	}
+	mergeConfig(&cfg, file, meta)
 	return cfg
 }

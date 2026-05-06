@@ -112,7 +112,11 @@ func Authenticate(clientID, clientSecret, redirectURI string) (*TokenData, error
 		return nil, fmt.Errorf("cannot start callback server: %w", err)
 	}
 	go func() { _ = srv.Serve(ln) }()
-	defer srv.Shutdown(context.Background())
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
 
 	authURL := buildAuthURL(clientID, redirectURI, state)
 	fmt.Fprintf(os.Stderr, "Opening browser for Spotify login...\n%s\n", authURL)
@@ -180,6 +184,8 @@ type tokenResponse struct {
 	Error        string `json:"error"`
 }
 
+var tokenHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 func postToken(clientID, clientSecret string, form url.Values) (*TokenData, error) {
 	req, err := http.NewRequest("POST", "https://accounts.spotify.com/api/token",
 		strings.NewReader(form.Encode()))
@@ -189,7 +195,7 @@ func postToken(clientID, clientSecret string, form url.Values) (*TokenData, erro
 	req.SetBasicAuth(clientID, clientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := tokenHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

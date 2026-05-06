@@ -47,7 +47,10 @@ func main() {
 	if *keysFlag {
 		m := newModel(nil, false, false, true)
 		p := tea.NewProgram(m, tea.WithAltScreen())
-		_, _ = p.Run()
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 		return
 	}
 

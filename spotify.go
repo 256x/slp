@@ -54,37 +54,40 @@ func (c *SpotifyClient) ensureFreshToken() error {
 }
 
 func (c *SpotifyClient) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	if err := c.ensureFreshToken(); err != nil {
-		return nil, err
-	}
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := c.ensureFreshToken(); err != nil {
+			return nil, err
+		}
 
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
+		var bodyReader io.Reader
+		if body != nil {
+			data, err := json.Marshal(body)
+			if err != nil {
+				return nil, err
+			}
+			bodyReader = bytes.NewReader(data)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, "https://api.spotify.com"+path, bodyReader)
 		if err != nil {
 			return nil, err
 		}
-		bodyReader = bytes.NewReader(data)
-	}
+		c.mu.Lock()
+		req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
+		c.mu.Unlock()
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 
-	req, err := http.NewRequestWithContext(ctx, method, "https://api.spotify.com"+path, bodyReader)
-	if err != nil {
-		return nil, err
-	}
-	c.mu.Lock()
-	req.Header.Set("Authorization", "Bearer "+c.token.AccessToken)
-	c.mu.Unlock()
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
 
-	// Handle 429 rate limit
-	if resp.StatusCode == http.StatusTooManyRequests {
 		retryAfter := 1
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
 			if n, err := strconv.Atoi(ra); err == nil {
@@ -98,11 +101,8 @@ func (c *SpotifyClient) do(ctx context.Context, method, path string, body any) (
 			return nil, ctx.Err()
 		case <-time.After(time.Duration(retryAfter) * time.Second):
 		}
-		// Retry once
-		return c.do(ctx, method, path, body)
 	}
-
-	return resp, nil
+	return nil, fmt.Errorf("rate limited: max retries exceeded")
 }
 
 // --- Playback ---
@@ -338,7 +338,8 @@ func (c *SpotifyClient) GetFirstTrackURI(ctx context.Context, playlistID string)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", nil
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("GET tracks: %d %s", resp.StatusCode, body)
 	}
 	var r struct {
 		Items []struct {
@@ -348,7 +349,7 @@ func (c *SpotifyClient) GetFirstTrackURI(ctx context.Context, playlistID string)
 		} `json:"items"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return "", nil
+		return "", err
 	}
 	if len(r.Items) > 0 {
 		return r.Items[0].Track.URI, nil
