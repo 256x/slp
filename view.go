@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/charmbracelet/lipgloss"
+	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/mattn/go-runewidth"
 	"github.com/muesli/termenv"
 )
@@ -223,9 +223,9 @@ func (m model) renderWithPopup() string {
 		return overlay(hints, popup, m.width, m.height)
 	}
 
-	items := make([]string, len(m.filteredLists))
-	rightLabels := make([]string, len(m.filteredLists))
-	for i, p := range m.filteredLists {
+	items := make([]string, len(m.filteredPlaylists))
+	rightLabels := make([]string, len(m.filteredPlaylists))
+	for i, p := range m.filteredPlaylists {
 		items[i] = p.Name
 		if p.TrackCount > 0 {
 			rightLabels[i] = fmt.Sprintf("%d", p.TrackCount)
@@ -236,7 +236,7 @@ func (m model) renderWithPopup() string {
 		rightLabels = nil
 	}
 
-	popup := renderPopupBox("playlists", items, rightLabels, m.playlistCursor, len(m.filteredLists), m.filterInput, m.filterActive, m.width, m.height)
+	popup := renderPopupBox("playlists", items, rightLabels, m.playlistCursor, len(m.filteredPlaylists), m.filterInput, m.filterActive, m.width, m.height)
 	return overlay(hints, popup, m.width, m.height)
 }
 

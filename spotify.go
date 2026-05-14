@@ -278,6 +278,11 @@ func (c *SpotifyClient) GetUserPlaylists(ctx context.Context) ([]Playlist, error
 		if err != nil {
 			return nil, err
 		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("GET /v1/me/playlists: %d %s", resp.StatusCode, body)
+		}
 		var r spotifyPlaylistsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 			resp.Body.Close()

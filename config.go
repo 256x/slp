@@ -169,22 +169,6 @@ func configPath() string {
 	return filepath.Join(home, ".config", "slp", "config.toml")
 }
 
-func mergeConfig(dst *Config, src Config, meta toml.MetaData) {
-	if meta.IsDefined("theme", "name") { dst.Theme.Name = src.Theme.Name }
-	if meta.IsDefined("theme", "accent") { dst.Theme.Accent = src.Theme.Accent }
-	if meta.IsDefined("theme", "selected_fg") { dst.Theme.SelectedFg = src.Theme.SelectedFg }
-	if meta.IsDefined("theme", "filter_fg") { dst.Theme.FilterFg = src.Theme.FilterFg }
-	if meta.IsDefined("icons", "play") { dst.Icons.Play = src.Icons.Play }
-	if meta.IsDefined("icons", "pause") { dst.Icons.Pause = src.Icons.Pause }
-	if meta.IsDefined("icons", "volume") { dst.Icons.Volume = src.Icons.Volume }
-	if meta.IsDefined("icons", "shuffle") { dst.Icons.Shuffle = src.Icons.Shuffle }
-	if meta.IsDefined("spotify", "client_id") { dst.Spotify.ClientID = src.Spotify.ClientID }
-	if meta.IsDefined("spotify", "client_secret") { dst.Spotify.ClientSecret = src.Spotify.ClientSecret }
-	if meta.IsDefined("spotify", "redirect_uri") { dst.Spotify.RedirectURI = src.Spotify.RedirectURI }
-	if meta.IsDefined("spotify", "search_limit") { dst.Spotify.SearchLimit = src.Spotify.SearchLimit }
-	if meta.IsDefined("ui", "tick_interval") { dst.UI.TickInterval = src.UI.TickInterval }
-}
-
 func LoadConfig() Config {
 	cfg := defaultConfig()
 	path := configPath()
@@ -194,11 +178,8 @@ func LoadConfig() Config {
 		_ = os.WriteFile(path, sampleConfig, 0o644)
 		return cfg
 	}
-	var file Config
-	meta, err := toml.Decode(string(data), &file)
-	if err != nil {
-		return cfg
+	if _, err := toml.Decode(string(data), &cfg); err != nil {
+		return defaultConfig()
 	}
-	mergeConfig(&cfg, file, meta)
 	return cfg
 }

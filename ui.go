@@ -27,30 +27,30 @@ type devicesLoadedMsg struct {
 // --- model ---
 
 type model struct {
-	width           int
-	height          int
-	ready           bool
-	popupOpen       bool
-	playlists       []Playlist
-	filteredLists   []Playlist
-	playlistCursor  int
-	filterInput     string
-	filterActive    bool
-	devicePopupOpen bool
-	devices         []Device
-	deviceCursor    int
-	deviceLoading   bool
-	pendingURI      string
-	playback        PlaybackState
-	statusMessage   string
-	statusExpiry    time.Time
-	loading         bool
-	helpOpen        bool
-	quitting        bool
-	selectMode      bool
-	keysMode        bool
-	client          *SpotifyClient
-	debug           bool
+	width             int
+	height            int
+	ready             bool
+	popupOpen         bool
+	playlists         []Playlist
+	filteredPlaylists []Playlist
+	playlistCursor    int
+	filterInput       string
+	filterActive      bool
+	devicePopupOpen   bool
+	devices           []Device
+	deviceCursor      int
+	deviceLoading     bool
+	pendingURI        string
+	playback          PlaybackState
+	statusMessage     string
+	statusExpiry      time.Time
+	loading           bool
+	helpOpen          bool
+	quitting          bool
+	selectMode        bool
+	keysMode          bool
+	client            *SpotifyClient
+	debug             bool
 }
 
 var cfg Config
@@ -223,7 +223,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return pl[i].TrackCount > pl[j].TrackCount
 			})
 			m.playlists = pl
-			m.filteredLists = pl
+			m.filteredPlaylists = pl
 			m.filterInput = ""
 			m.playlistCursor = 0
 		}
@@ -342,10 +342,10 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Previous)
 
 	case "k", "up":
-		return m, m.adjustVolume(+5)
+		return m.adjustVolume(+5)
 
 	case "j", "down":
-		return m, m.adjustVolume(-5)
+		return m.adjustVolume(-5)
 
 	case "?":
 		if os.Getenv("TMUX") != "" || os.Getenv("ZELLIJ") != "" {
@@ -375,7 +375,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.popupOpen = true
 		m.filterInput = ""
 		m.filterActive = true
-		m.filteredLists = nil
+		m.filteredPlaylists = nil
 		m.playlists = nil
 		m.playlistCursor = 0
 	}
@@ -383,12 +383,12 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) adjustVolume(delta int) tea.Cmd {
+func (m model) adjustVolume(delta int) (model, tea.Cmd) {
 	if m.playback.DeviceID == "" {
-		return func() tea.Msg { return statusMsg{Text: "no active Spotify device"} }
+		return m, func() tea.Msg { return statusMsg{Text: "no active Spotify device"} }
 	}
 	if m.playback.VolumePercent == nil {
-		return func() tea.Msg { return statusMsg{Text: "volume not supported on this device"} }
+		return m, func() tea.Msg { return statusMsg{Text: "volume not supported on this device"} }
 	}
 	newVol := *m.playback.VolumePercent + delta
 	if newVol < 0 {
@@ -400,7 +400,7 @@ func (m model) adjustVolume(delta int) tea.Cmd {
 	m.playback.VolumePercent = &newVol
 	deviceID := m.playback.DeviceID
 	client := m.client
-	return func() tea.Msg {
+	return m, func() tea.Msg {
 		if err := client.SetVolume(context.Background(), deviceID, newVol); err != nil {
 			return apiErrorMsg{Err: err}
 		}
@@ -417,12 +417,12 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.filterActive = false
 			m.filterInput = ""
-			m.filteredLists = m.playlists
+			m.filteredPlaylists = m.playlists
 			m.playlistCursor = 0
 		case "enter":
 			m.filterActive = false
 			m.loading = true
-			m.filteredLists = nil
+			m.filteredPlaylists = nil
 			m.playlistCursor = 0
 			if m.filterInput == "" {
 				return m, fetchPlaylists(m.client)
@@ -432,7 +432,7 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if len(m.filterInput) > 0 {
 				_, size := utf8.DecodeLastRuneInString(m.filterInput)
 				m.filterInput = m.filterInput[:len(m.filterInput)-size]
-				m.filteredLists = filterPlaylists(m.playlists, m.filterInput)
+				m.filteredPlaylists = filterPlaylists(m.playlists, m.filterInput)
 				m.playlistCursor = 0
 			} else {
 				// empty input: close popup
@@ -450,7 +450,7 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			if len(msg.Runes) > 0 {
 				m.filterInput += string(msg.Runes)
-				m.filteredLists = filterPlaylists(m.playlists, m.filterInput)
+				m.filteredPlaylists = filterPlaylists(m.playlists, m.filterInput)
 				m.playlistCursor = 0
 			}
 		}
@@ -469,7 +469,7 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.filterActive = true
 
 	case "j", "down":
-		if m.playlistCursor < len(m.filteredLists)-1 {
+		if m.playlistCursor < len(m.filteredPlaylists)-1 {
 			m.playlistCursor++
 		}
 
@@ -482,10 +482,10 @@ func (m model) handlePopupKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.filterActive = true
 
 	case "enter":
-		if len(m.filteredLists) == 0 {
+		if len(m.filteredPlaylists) == 0 {
 			break
 		}
-		selected := m.filteredLists[m.playlistCursor]
+		selected := m.filteredPlaylists[m.playlistCursor]
 		m.popupOpen = false
 		m.pendingURI = selected.URI
 		m.devicePopupOpen = true

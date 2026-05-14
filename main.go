@@ -10,7 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "v1.0.3"
+const version = "v1.0.4"
 
 func main() {
 	versionFlag := flag.Bool("version", false, "print version and exit")
@@ -81,7 +81,6 @@ func main() {
 		debugLog = logger.Printf
 	}
 
-	// Load or obtain token
 	token, err := LoadToken()
 	if err != nil {
 		debugLog("no stored token, starting OAuth flow")
@@ -97,7 +96,6 @@ func main() {
 
 	client := NewSpotifyClient(token, clientID, clientSecret, debugLog)
 
-	// Try to restore from cache if present
 	m := newModel(client, *debugFlag, *selectFlag, false)
 	if !*selectFlag {
 		if cached, err := LoadPlaybackCache(); err == nil {
