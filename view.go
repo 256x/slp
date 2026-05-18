@@ -110,7 +110,7 @@ func (m model) currentStatus() string {
 
 func buildPlayerLine(s PlaybackState, width int, status string) string {
 	if status != "" {
-		return truncate(status, width)
+		return runewidth.Truncate(status, width, "…")
 	}
 	if s.Track == "" && s.DeviceID == "" {
 		return styleAccent.Render("[slp]") + styleDim.Render(" no active playback — [space] select")
@@ -136,7 +136,7 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 	available := width - prefixW - rightW
 
 	if available < 4 {
-		return prefix + truncate(s.Track, available) + right
+		return prefix + runewidth.Truncate(s.Track, available, "…") + right
 	}
 
 	text := s.Track + " @ " + s.Artist + " "
@@ -148,7 +148,7 @@ func buildPlayerLine(s PlaybackState, width int, status string) string {
 		if innerMax < 1 {
 			innerMax = 1
 		}
-		text = truncate(s.Track+" @ "+s.Artist, innerMax) + " "
+		text = runewidth.Truncate(s.Track+" @ "+s.Artist, innerMax, "…") + " "
 		textW = runewidth.StringWidth(text)
 	}
 
@@ -183,17 +183,6 @@ func progressBarChars(progressMS, durationMS, width int) (string, int) {
 	}
 	filled := int(float64(width) * ratio)
 	return strings.Repeat("=", filled) + strings.Repeat("-", width-filled), filled
-}
-
-func truncate(s string, maxRunes int) string {
-	runes := []rune(s)
-	if len(runes) <= maxRunes {
-		return s
-	}
-	if maxRunes <= 1 {
-		return "…"
-	}
-	return string(runes[:maxRunes-1]) + "…"
 }
 
 // --- popup rendering ---

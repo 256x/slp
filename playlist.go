@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -25,6 +26,19 @@ func searchPlaylists(client *SpotifyClient, query string) tea.Cmd {
 		playlists, err := client.SearchPlaylists(context.Background(), query)
 		return playlistsLoadedMsg{Playlists: playlists, Err: err}
 	}
+}
+
+func startPlayback(ctx context.Context, client *SpotifyClient, uri, deviceID string) error {
+	if deviceID != "" {
+		_ = client.TransferPlayback(ctx, deviceID)
+		time.Sleep(500 * time.Millisecond)
+	}
+	var offsetURI string
+	parts := strings.Split(uri, ":")
+	if len(parts) == 3 && parts[1] == "playlist" {
+		offsetURI, _ = client.GetFirstTrackURI(ctx, parts[2])
+	}
+	return client.PlayPlaylist(ctx, uri, deviceID, offsetURI)
 }
 
 // filterPlaylists returns playlists whose name contains query (case-insensitive).

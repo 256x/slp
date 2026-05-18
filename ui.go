@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"sort"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -109,19 +108,6 @@ func fetchDevices(client *SpotifyClient) tea.Cmd {
 	}
 }
 
-func startPlayback(ctx context.Context, client *SpotifyClient, uri, deviceID string) error {
-	if deviceID != "" {
-		_ = client.TransferPlayback(ctx, deviceID)
-		time.Sleep(500 * time.Millisecond)
-	}
-	var offsetURI string
-	parts := strings.Split(uri, ":")
-	if len(parts) == 3 && parts[1] == "playlist" {
-		offsetURI, _ = client.GetFirstTrackURI(ctx, parts[2])
-	}
-	return client.PlayPlaylist(ctx, uri, deviceID, offsetURI)
-}
-
 func skipCmd(client *SpotifyClient, deviceID string, fn func(context.Context, string) error) tea.Cmd {
 	return func() tea.Msg {
 		if err := fn(context.Background(), deviceID); err != nil {
@@ -150,10 +136,7 @@ func playCmd(client *SpotifyClient, uri, deviceID string) tea.Cmd {
 
 func openExternalHelp() tea.Cmd {
 	return func() tea.Msg {
-		exe, err := os.Executable()
-		if err != nil {
-			exe = os.Args[0]
-		}
+		exe := exePath()
 		var cmd *exec.Cmd
 		switch {
 		case os.Getenv("TMUX") != "":
@@ -170,10 +153,7 @@ func openExternalHelp() tea.Cmd {
 
 func openExternalSelect(client *SpotifyClient) tea.Cmd {
 	return func() tea.Msg {
-		exe, err := os.Executable()
-		if err != nil {
-			exe = os.Args[0]
-		}
+		exe := exePath()
 		var cmd *exec.Cmd
 		switch {
 		case os.Getenv("TMUX") != "":
@@ -267,6 +247,32 @@ func friendlyError(err error) string {
 	return "error: " + err.Error()
 }
 
+func (m model) requireDevice() (model, bool) {
+	if m.playback.DeviceID == "" {
+		m.setStatus("no active Spotify device")
+		return m, false
+	}
+	return m, true
+}
+
+func exePath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return os.Args[0]
+	}
+	return exe
+}
+
+func (m model) openPlaylistPopup() model {
+	m.popupOpen = true
+	m.filterInput = ""
+	m.filterActive = true
+	m.filteredPlaylists = nil
+	m.playlists = nil
+	m.playlistCursor = 0
+	return m
+}
+
 // --- key handlers ---
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -301,8 +307,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "enter":
-		if m.playback.DeviceID == "" {
-			m.setStatus("no active Spotify device")
+		if m, ok := m.requireDevice(); !ok {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -328,15 +333,13 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case "l", "right":
-		if m.playback.DeviceID == "" {
-			m.setStatus("no active Spotify device")
+		if m, ok := m.requireDevice(); !ok {
 			return m, nil
 		}
 		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Next)
 
 	case "h", "left":
-		if m.playback.DeviceID == "" {
-			m.setStatus("no active Spotify device")
+		if m, ok := m.requireDevice(); !ok {
 			return m, nil
 		}
 		return m, skipCmd(m.client, m.playback.DeviceID, m.client.Previous)
@@ -355,8 +358,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "s", "S":
-		if m.playback.DeviceID == "" {
-			m.setStatus("no active Spotify device")
+		if m, ok := m.requireDevice(); !ok {
 			return m, nil
 		}
 		newShuffle := !m.playback.Shuffle
@@ -372,12 +374,7 @@ func (m model) handlePlayerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if os.Getenv("TMUX") != "" || os.Getenv("ZELLIJ") != "" {
 			return m, openExternalSelect(m.client)
 		}
-		m.popupOpen = true
-		m.filterInput = ""
-		m.filterActive = true
-		m.filteredPlaylists = nil
-		m.playlists = nil
-		m.playlistCursor = 0
+		return m.openPlaylistPopup(), nil
 	}
 
 	return m, nil
