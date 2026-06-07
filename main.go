@@ -45,7 +45,7 @@ func main() {
 	initGradient()
 
 	if *keysFlag {
-		m := newModel(nil, false, false, true)
+		m := newModel(nil, false, true)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
@@ -96,7 +96,7 @@ func main() {
 
 	client := NewSpotifyClient(token, clientID, clientSecret, debugLog)
 
-	m := newModel(client, *debugFlag, *selectFlag, false)
+	m := newModel(client, *selectFlag, false)
 	if !*selectFlag {
 		if cached, err := LoadPlaybackCache(); err == nil {
 			m.playback = cached

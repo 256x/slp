@@ -280,7 +280,6 @@ func renderPopupBox(title string, items, rightLabels []string, cursor, total int
 	}
 
 	innerW := maxW - 4 // border + padding
-	faint := lipgloss.NewStyle().Faint(true)
 
 	var sb strings.Builder
 
@@ -300,7 +299,7 @@ func renderPopupBox(title string, items, rightLabels []string, cursor, total int
 		if pad < 1 {
 			pad = 1
 		}
-		sb.WriteString(titleRendered + strings.Repeat(" ", pad) + faint.Render(scrollStr))
+		sb.WriteString(titleRendered + strings.Repeat(" ", pad) + styleDim.Render(scrollStr))
 	} else {
 		sb.WriteString(titleRendered)
 	}
@@ -321,7 +320,7 @@ func renderPopupBox(title string, items, rightLabels []string, cursor, total int
 	}
 
 	// Separator
-	sb.WriteString(faint.Render(strings.Repeat("─", innerW)))
+	sb.WriteString(styleDim.Render(strings.Repeat("─", innerW)))
 	sb.WriteString("\n")
 
 	// Compute max right-label width
@@ -359,7 +358,7 @@ func renderPopupBox(title string, items, rightLabels []string, cursor, total int
 		} else {
 			sb.WriteString("  " + text)
 			if rightW > 0 {
-				sb.WriteString(" " + faint.Render(runewidth.FillRight(rl, rightW-1)))
+				sb.WriteString(" " + styleDim.Render(runewidth.FillRight(rl, rightW-1)))
 			}
 		}
 		sb.WriteString("\n")

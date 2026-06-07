@@ -49,15 +49,13 @@ type model struct {
 	selectMode        bool
 	keysMode          bool
 	client            *SpotifyClient
-	debug             bool
 }
 
 var cfg Config
 
-func newModel(client *SpotifyClient, debug bool, selectMode, keysMode bool) model {
+func newModel(client *SpotifyClient, selectMode, keysMode bool) model {
 	return model{
 		client:       client,
-		debug:        debug,
 		selectMode:   selectMode,
 		keysMode:     keysMode,
 		popupOpen:    selectMode,
