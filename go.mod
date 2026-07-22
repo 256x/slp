@@ -1,4 +1,4 @@
-module github.com/spolistplay/slp
+module github.com/256x/slp
 
 go 1.24.0
 
