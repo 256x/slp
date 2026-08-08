@@ -163,4 +163,35 @@ tick_interval = 2  # polling interval in seconds
 slp --version   print version
 slp --logout    remove stored token
 slp --debug     enable debug logging
+slp --export    print playlists as Markdown
+slp -o PATH     write the export to a file, or to a directory as one file per playlist
+```
+
+---
+
+## Export
+
+`--export` prints playlists as Markdown to stdout instead of starting the UI.
+An argument filters playlists by name (case-insensitive substring match);
+without one, every playlist is exported.
+
+```
+slp --export                      # all playlists to stdout
+slp --export jazz                 # only playlists whose name contains "jazz"
+slp --export jazz -o ~/jazz.md    # write to a single file
+slp --export -o ~/playlists/      # existing directory: one <name>.md per playlist
+```
+
+Output looks like:
+
+```markdown
+# Jazz
+
+- Tracks: 42
+- Owner: 256x
+- URI: spotify:playlist:xxxxxxxx
+- Exported: 2026-08-08
+
+1. So What — Miles Davis
+2. Blue in Green — Miles Davis
 ```

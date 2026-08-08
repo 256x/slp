@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -18,7 +19,17 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "enable debug logging")
 	selectFlag := flag.Bool("select", false, "popup selection mode (used internally with tmux display-popup)")
 	keysFlag := flag.Bool("keys", false, "show key bindings (used internally with tmux display-popup)")
+	exportFlag := flag.Bool("export", false, "print playlists as Markdown (optionally filtered by a name given as argument)")
+	outFlag := flag.String("o", "", "write export to this file, or one file per playlist if it is a directory")
 	flag.Parse()
+
+	// Go's flag package stops at the first non-flag argument, so keep parsing
+	// after each positional one to allow `slp -export name -o out.md`.
+	var positional []string
+	for args := flag.Args(); len(args) > 0; args = flag.Args() {
+		positional = append(positional, args[0])
+		flag.CommandLine.Parse(args[1:])
+	}
 
 	if *versionFlag {
 		fmt.Println("slp", version)
@@ -95,6 +106,14 @@ func main() {
 	}
 
 	client := NewSpotifyClient(token, clientID, clientSecret, debugLog)
+
+	if *exportFlag {
+		if err := runExport(client, strings.Join(positional, " "), *outFlag); err != nil {
+			fmt.Fprintln(os.Stderr, "export error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	m := newModel(client, *selectFlag, false)
 	if !*selectFlag {

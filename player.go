@@ -22,6 +22,15 @@ type Playlist struct {
 	URI        string
 }
 
+// Track holds info for a single track in a playlist.
+type Track struct {
+	Name       string
+	Artists    []string
+	Album      string
+	DurationMS int
+	URI        string
+}
+
 // Device holds info for a Spotify Connect device.
 type Device struct {
 	ID       string

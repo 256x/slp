@@ -362,6 +362,77 @@ func (c *SpotifyClient) GetFirstTrackURI(ctx context.Context, playlistID string)
 	return "", nil
 }
 
+type spotifyPlaylistTracksResponse struct {
+	Items []struct {
+		Track *struct {
+			Name  string `json:"name"`
+			URI   string `json:"uri"`
+			Album struct {
+				Name string `json:"name"`
+			} `json:"album"`
+			Artists []struct {
+				Name string `json:"name"`
+			} `json:"artists"`
+			DurationMS int `json:"duration_ms"`
+		} `json:"track"`
+	} `json:"items"`
+	Next string `json:"next"`
+}
+
+// GetPlaylistTracks returns every track in a playlist, following pagination.
+func (c *SpotifyClient) GetPlaylistTracks(ctx context.Context, playlistID string) ([]Track, error) {
+	const fields = "next,items(track(name,uri,duration_ms,album(name),artists(name)))"
+	path := "/v1/playlists/" + url.PathEscape(playlistID) + "/tracks?limit=100&fields=" + url.QueryEscape(fields)
+
+	var all []Track
+	for path != "" {
+		resp, err := c.do(ctx, "GET", path, nil)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("GET tracks: %d %s", resp.StatusCode, body)
+		}
+		var r spotifyPlaylistTracksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
+		resp.Body.Close()
+
+		for _, item := range r.Items {
+			// Removed or unavailable entries come back as a null track.
+			if item.Track == nil {
+				continue
+			}
+			t := Track{
+				Name:       item.Track.Name,
+				Album:      item.Track.Album.Name,
+				DurationMS: item.Track.DurationMS,
+				URI:        item.Track.URI,
+			}
+			for _, a := range item.Track.Artists {
+				t.Artists = append(t.Artists, a.Name)
+			}
+			all = append(all, t)
+		}
+
+		// Next is a full URL; extract path+query
+		if r.Next != "" {
+			u, err := url.Parse(r.Next)
+			if err != nil || u.Path == "" {
+				break
+			}
+			path = u.Path + "?" + u.RawQuery
+		} else {
+			path = ""
+		}
+	}
+	return all, nil
+}
+
 func (c *SpotifyClient) PlayPlaylist(ctx context.Context, uri, deviceID, offsetURI string) error {
 	body := map[string]any{"context_uri": uri}
 	if offsetURI != "" {
