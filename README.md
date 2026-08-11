@@ -4,13 +4,19 @@
 
 ![slp](https://github.com/user-attachments/assets/bf13794b-b139-4664-b143-b380a717e484)
 
-> **slp has a successor: [spotine](https://github.com/256x/spotine).**
+> # ⚠️ Discontinued — use [spotine](https://github.com/256x/spotine)
 >
-> spotine is this player with an artist and album browser alongside the playlist one —
-> search an artist, pick a record, play it front to back — switchable with `tab`. It reads
-> slp's saved token on first run, so upgrading needs no new login.
+> slp is no longer developed. **[spotine](https://github.com/256x/spotine) replaces it** and
+> is a drop-in upgrade: it copies slp's saved token on first run, so there is no new login.
 >
-> slp still works and is not going anywhere, but new work happens in spotine.
+> spotine is this player with an artist and album browser alongside the playlist one — search
+> an artist, pick a record, play it front to back — switchable with `tab`.
+>
+> ```sh
+> go install github.com/256x/spotine@latest
+> ```
+>
+> v1.0.5 below stays up for anyone still running it, but it will not receive further changes.
 
 ---
 
